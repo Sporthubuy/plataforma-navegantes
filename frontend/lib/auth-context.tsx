@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react';
@@ -13,6 +14,7 @@ import type { User } from './types';
 
 interface AuthContextValue {
   user: User | null;
+  permissions: string[];
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: {
@@ -23,6 +25,8 @@ interface AuthContextValue {
   }) => Promise<void>;
   logout: () => void;
   updateUser: (changes: Partial<User>) => void;
+  hasPermission: (permission: string) => boolean;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -39,9 +43,10 @@ function decodeUserId(token: string): string | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Al montar: si hay token, verifica que la sesión siga siendo válida.
+  // Al montar: si hay token, verifica la sesión y carga perfil + permisos.
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY);
     const userId = token ? decodeUserId(token) : null;
@@ -53,11 +58,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     api
-      .get(`/api/users/profile/${userId}`)
-      .then((res) => setUser(res.data.profile))
+      .get('/api/users/me')
+      .then((res) => {
+        setUser(res.data.profile);
+        setPermissions(res.data.permissions ?? []);
+      })
       .catch(() => {
         localStorage.removeItem(TOKEN_KEY);
         setUser(null);
+        setPermissions([]);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -66,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await api.post('/api/auth/login', { email, password });
     localStorage.setItem(TOKEN_KEY, res.data.token);
     setUser(res.data.user);
+    setPermissions(res.data.permissions ?? []);
   }, []);
 
   const register = useCallback(
@@ -83,19 +93,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     setUser(null);
+    setPermissions([]);
   }, []);
 
   const updateUser = useCallback((changes: Partial<User>) => {
     setUser((prev) => (prev ? { ...prev, ...changes } : prev));
   }, []);
 
-  return (
-    <AuthContext.Provider
-      value={{ user, loading, login, register, logout, updateUser }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const hasPermission = useCallback(
+    (permission: string) => permissions.includes(permission),
+    [permissions]
   );
+
+  // Es admin si tiene al menos un permiso del sistema.
+  const isAdmin = permissions.length > 0;
+
+  const value = useMemo(
+    () => ({
+      user,
+      permissions,
+      loading,
+      login,
+      register,
+      logout,
+      updateUser,
+      hasPermission,
+      isAdmin,
+    }),
+    [
+      user,
+      permissions,
+      loading,
+      login,
+      register,
+      logout,
+      updateUser,
+      hasPermission,
+      isAdmin,
+    ]
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {

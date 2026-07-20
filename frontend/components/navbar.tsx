@@ -60,6 +60,24 @@ function BellIcon({ active }: { active: boolean }) {
   );
 }
 
+function ShieldIcon({ active }: { active: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-6 w-6"
+      fill={active ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth={active ? 0 : 1.8}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 3l7 3v5c0 4.4-3 8.3-7 9.5-4-1.2-7-5.1-7-9.5V6l7-3Z"
+      />
+    </svg>
+  );
+}
+
 function AnchorIcon({ active }: { active: boolean }) {
   return (
     <svg
@@ -80,7 +98,7 @@ function AnchorIcon({ active }: { active: boolean }) {
 }
 
 export function Navbar() {
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
   const pathname = usePathname();
   const [pending, setPending] = useState(0);
 
@@ -128,6 +146,9 @@ export function Navbar() {
     { href: '/home', label: 'Home', icon: HomeIcon, badge: 0 },
     { href: '/boats', label: 'Barcos', icon: BoatIcon, badge: 0 },
     { href: '/invitations', label: 'Alertas', icon: BellIcon, badge: pending },
+    ...(isAdmin
+      ? [{ href: '/admin', label: 'Admin', icon: ShieldIcon, badge: 0 }]
+      : []),
     { href: '/profile', label: 'Perfil', icon: AnchorIcon, badge: 0 },
   ];
 
