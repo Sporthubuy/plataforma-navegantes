@@ -31,7 +31,7 @@ router.post(
     if (!isValidUsername(username)) {
       return res.status(400).json({
         error:
-          'Username inválido (3-30 caracteres: letras, números o guion bajo)',
+          'Username inválido (3-20 caracteres: minúsculas, números o guion bajo)',
       });
     }
 

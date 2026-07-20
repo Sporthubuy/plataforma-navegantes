@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth-context';
 import { getApiError } from '@/lib/api';
 import { Navbar } from '@/components/navbar';
 
-const USERNAME_RE = /^[A-Za-z0-9_]{3,30}$/;
+const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RegisterPage() {
@@ -27,7 +27,7 @@ export default function RegisterPage() {
     setError('');
 
     if (!USERNAME_RE.test(username)) {
-      setError('Username inválido (3-30 caracteres: letras, números o guion bajo)');
+      setError('Username inválido (3-20 caracteres: minúsculas, números o guion bajo)');
       return;
     }
     if (!EMAIL_RE.test(email.trim())) {
