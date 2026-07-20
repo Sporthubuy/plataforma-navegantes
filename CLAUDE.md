@@ -63,6 +63,20 @@ Campos adicionales en `profiles` (todos nullable):
 - La **sanitización fuerte va en el backend** (PUT `/profile/:id`): trim, límites de longitud, normalización del handle de Instagram (quita `@`/URL) y validación de URLs; el frontend arma las URLs públicas a partir del dato crudo.
 - **Estadísticas** públicas por `GET /profile/:id/stats`: `boats_owned`, `crews_joined` (aceptadas) y `member_since`.
 
+## Sistema de regatas (alcance actual)
+
+Modelo estándar de la vela (respetarlo tal cual):
+
+- Una **regata** (`regattas`) es un evento de **una clase** de barco (`sailing_class`) con varias **mangas** (`races`).
+- Los barcos se **inscriben** (`regatta_entries`, una entry por barco). Solo pueden inscribirse barcos cuya **clase (`boats.category`) coincida** con la de la regata.
+- Cada manga produce una **posición** por barco (`race_results`). Puntaje **Low Point System**: posición = puntos (1º = 1 pt), gana quien **menos** suma.
+- El resultado final es la **suma de puntos** de todas las mangas por barco, con **descartes** opcionales (`discards_count`, 0 = ninguno por ahora).
+- Códigos especiales de la vela (`DNF`, `DNS`, `DSQ`, `DNC`, `OCS`, `RET`) puntúan como **cantidad de inscriptos + 1**.
+- **Estados de regata:** `upcoming` (creada) → `open` (inscripciones abiertas) → `in_progress` → `finished`, o `cancelled`.
+- **Permisos** granulares nuevos: `regattas.create`, `regattas.edit`, `regattas.delete`, `regattas.manage_results`. Enforcement en el backend con service role; RLS bloquea escritura directa de clientes.
+- La inscripción la hace el **owner** del barco; puede **retirarse** (`status='withdrawn'`).
+- El **historial de regatas** de un navegante (estilo LinkedIn) alimenta la sección de logros del perfil: `GET /api/users/:id/regatta-history`.
+
 ## Convenciones
 
 - **Puertos:** backend en `3001`, frontend en `3000`.
