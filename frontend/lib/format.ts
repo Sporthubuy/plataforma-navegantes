@@ -34,6 +34,23 @@ export function timeAgo(iso: string | null | undefined): string {
   return formatDate(iso);
 }
 
+/** Rango de fechas: "1–3 ago 2026" o "30 jul – 2 ago 2026". */
+export function formatDateRange(startIso: string, endIso: string): string {
+  const start = new Date(startIso + 'T00:00:00');
+  const end = new Date(endIso + 'T00:00:00');
+  const sameMonth =
+    start.getMonth() === end.getMonth() &&
+    start.getFullYear() === end.getFullYear();
+  const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
+  if (sameMonth) {
+    if (start.getDate() === end.getDate()) {
+      return start.toLocaleDateString('es', { ...opts, year: 'numeric' });
+    }
+    return `${start.getDate()}–${end.toLocaleDateString('es', { ...opts, year: 'numeric' })}`;
+  }
+  return `${start.toLocaleDateString('es', opts)} – ${end.toLocaleDateString('es', { ...opts, year: 'numeric' })}`;
+}
+
 export const ACCOUNT_TYPE_LABEL: Record<string, string> = {
   sailor: 'Navegante',
   club: 'Club',

@@ -12,6 +12,7 @@ import {
   BellIcon,
   ShieldIcon,
   AnchorIcon,
+  FlagIcon,
 } from '@/components/nav-icons';
 
 type NavItem = {
@@ -46,6 +47,7 @@ function useNavItems(): NavItem[] {
 
   return [
     { href: '/home', label: 'Home', icon: HomeIcon },
+    { href: '/regattas', label: 'Regatas', icon: FlagIcon },
     { href: '/boats', label: 'Barcos', icon: BoatIcon },
     { href: '/invitations', label: 'Alertas', icon: BellIcon, badge: pending },
     ...(isAdmin

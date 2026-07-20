@@ -20,6 +20,7 @@ import {
   SocialLinks,
   StatsStrip,
 } from '@/components/profile/profile-extras';
+import { RegattaHistory } from '@/components/profile/regatta-history';
 import type { MyBoat, ProfileStats, User } from '@/lib/types';
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
@@ -577,7 +578,14 @@ export default function ProfilePage() {
             )}
           </section>
 
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <section className="mt-8">
+            <h2 className="mb-3 text-lg font-bold text-navy-900 md:text-xl">
+              Historial de regatas
+            </h2>
+            <RegattaHistory userId={user.id} />
+          </section>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button
               variant="secondary"
               fullWidth

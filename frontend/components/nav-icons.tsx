@@ -56,6 +56,24 @@ export function BellIcon({ active, className = 'h-6 w-6' }: IconProps) {
   );
 }
 
+export function FlagIcon({ active, className = 'h-6 w-6' }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={active ? 2.4 : 1.8}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M5 21V4m0 1.5 3.5-1.5c2 -.8 4 .8 6 0l4-1.7v9l-4 1.7c-2 .8-4-.8-6 0L5 13.5"
+      />
+    </svg>
+  );
+}
+
 export function ShieldIcon({ active, className = 'h-6 w-6' }: IconProps) {
   return (
     <svg

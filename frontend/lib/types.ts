@@ -173,3 +173,105 @@ export interface AdminBoat {
   updated_at: string;
   owner: BoatOwner | null;
 }
+
+// ── Regatas ─────────────────────────────────────────────────
+
+export type RegattaStatus =
+  | 'upcoming'
+  | 'open'
+  | 'in_progress'
+  | 'finished'
+  | 'cancelled';
+
+export interface Regatta {
+  id: string;
+  name: string;
+  description: string | null;
+  sailing_class: string;
+  location: string | null;
+  start_date: string;
+  end_date: string;
+  status: RegattaStatus;
+  registration_opens_at: string | null;
+  registration_closes_at: string | null;
+  max_entries: number | null;
+  scoring_system: string;
+  discards_count: number;
+  photo_url: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  entry_count?: number;
+}
+
+export interface Race {
+  id: string;
+  race_number: number;
+  name: string | null;
+  status: 'scheduled' | 'completed';
+  sailed_at: string | null;
+}
+
+export interface RegattaDetail extends Regatta {
+  races: Race[];
+}
+
+export interface EligibleBoat {
+  id: string;
+  name: string;
+  sail_number: string | null;
+  category: string;
+  photo_url: string | null;
+  eligible: boolean;
+  class_matches: boolean;
+  already_registered: boolean;
+}
+
+export interface RegattaEntry {
+  id: string;
+  regatta_id: string;
+  boat_id: string;
+  registered_by: string;
+  sail_number: string | null;
+  status: 'confirmed' | 'withdrawn';
+  registered_at: string;
+  boat: {
+    id: string;
+    name: string;
+    sail_number: string | null;
+    category: string;
+    photo_url: string | null;
+    owner: BoatOwner | null;
+  } | null;
+}
+
+export interface StandingRacePoint {
+  race_id: string;
+  points: number;
+  position: number | null;
+  code: string | null;
+  discarded: boolean;
+}
+
+export interface Standing {
+  entry_id: string;
+  races: StandingRacePoint[];
+  gross_total: number;
+  total: number;
+  rank: number;
+  entry: RegattaEntry | null;
+}
+
+export interface RegattaHistoryItem {
+  entry_id: string;
+  regatta_id: string;
+  regatta_name: string;
+  sailing_class: string;
+  location: string | null;
+  start_date: string;
+  status: RegattaStatus;
+  boat_name: string | null;
+  position: number | null;
+  total_entries: number | null;
+  points: number | null;
+}
