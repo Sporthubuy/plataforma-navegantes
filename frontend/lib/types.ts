@@ -32,3 +32,60 @@ export interface Pagination {
   offset: number;
   total: number;
 }
+
+export interface BoatOwner {
+  id: string;
+  username: string;
+  name: string | null;
+  avatar_url: string | null;
+}
+
+export interface Boat {
+  id: string;
+  name: string;
+  sail_number: string | null;
+  category: string;
+  photo_url: string | null;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+  owner?: BoatOwner | null;
+}
+
+export interface MyBoat extends Boat {
+  relation: 'owner' | 'crew';
+  my_role: string | null;
+  crew_member_id: string | null;
+}
+
+export interface CrewEntry {
+  id: string;
+  role: string;
+  invited_at: string;
+  user: BoatOwner | null;
+}
+
+export interface BoatWithCrew extends Boat {
+  crew: CrewEntry[];
+}
+
+export interface Invitation {
+  id: string;
+  role: string;
+  invited_at: string;
+  boat: {
+    id: string;
+    name: string;
+    sail_number: string | null;
+    category: string;
+    photo_url: string | null;
+    owner: BoatOwner | null;
+  } | null;
+}
+
+export interface UserSearchResult {
+  id: string;
+  username: string;
+  name: string | null;
+  avatar_url: string | null;
+}

@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import { Navbar } from '@/components/navbar';
+import { Username } from '@/components/username';
+import { Avatar } from '@/components/avatar';
 import type { Post } from '@/lib/types';
 
 const PAGE_SIZE = 20;
@@ -63,24 +65,18 @@ function PostCard({ post }: { post: Post }) {
   return (
     <article className="rounded-2xl bg-white p-4 shadow-sm">
       <div className="flex items-center gap-3">
-        {author?.avatar_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={author.avatar_url}
-            alt={author.username}
-            className="h-10 w-10 rounded-full object-cover"
-          />
-        ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-navy-800 font-bold text-white">
-            {(author?.username ?? '?').charAt(0).toUpperCase()}
-          </div>
-        )}
+        <Avatar
+          src={author?.avatar_url}
+          name={author?.username ?? '?'}
+          className="h-10 w-10 text-base"
+        />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-navy-900">
             {author?.name || author?.username || 'Usuario eliminado'}
           </p>
           <p className="truncate text-xs text-navy-400">
-            @{author?.username ?? '—'} · {timeAgo(post.created_at)}
+            <Username username={author?.username} className="text-xs" /> ·{' '}
+            {timeAgo(post.created_at)}
           </p>
         </div>
       </div>
