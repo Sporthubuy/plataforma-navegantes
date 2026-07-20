@@ -4,15 +4,43 @@ import { requireAuth } from '../middleware/auth';
 import { asyncHandler } from '../lib/async-handler';
 import { isValidUsername } from '../lib/validation';
 import { extForMime, imageUpload } from '../lib/upload';
+import { getUserPermissions } from '../middleware/permissions';
 
 const router = Router();
 
 const PROFILE_FIELDS = 'id, username, name, bio, avatar_url, created_at';
+const ME_FIELDS =
+  'id, username, name, bio, avatar_url, created_at, account_type, status';
 
 /** Quita el @ inicial (si lo escribieron) y normaliza a minúsculas. */
 export function normalizeUsername(value: string): string {
   return value.trim().toLowerCase().replace(/^@/, '');
 }
+
+/**
+ * GET /api/users/me — requiere auth.
+ * Perfil del usuario autenticado + su array de permisos, para que el
+ * frontend sepa qué UI de administración mostrar.
+ */
+router.get(
+  '/me',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .select(ME_FIELDS)
+      .eq('id', req.user!.id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+
+    const permissions = await getUserPermissions(req.user!.id);
+    return res.json({ profile: data, permissions });
+  })
+);
 
 /**
  * GET /api/users/search?q=texto — requiere auth.

@@ -7,6 +7,7 @@ import {
   isValidPassword,
   isValidUsername,
 } from '../lib/validation';
+import { getUserPermissions } from '../middleware/permissions';
 
 const router = Router();
 
@@ -116,9 +117,15 @@ router.post(
 
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('id, username, name, bio, avatar_url')
+      .select('id, username, name, bio, avatar_url, account_type, status')
       .eq('id', userId)
       .maybeSingle();
+
+    if (profile?.status === 'suspended') {
+      return res.status(403).json({ error: 'Cuenta suspendida' });
+    }
+
+    const permissions = await getUserPermissions(userId);
 
     const token = signToken(userId);
     return res.json({
@@ -128,6 +135,7 @@ router.post(
         email: data.user.email,
         ...profile,
       },
+      permissions,
     });
   })
 );

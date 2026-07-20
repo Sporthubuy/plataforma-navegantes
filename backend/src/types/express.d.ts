@@ -6,6 +6,8 @@ declare global {
       user?: {
         id: string;
       };
+      /** Cache de permisos del usuario autenticado (por request). */
+      permissions?: string[];
     }
   }
 }
