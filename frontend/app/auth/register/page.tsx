@@ -6,7 +6,10 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/lib/auth-context';
 import { getApiError } from '@/lib/api';
-import { Navbar } from '@/components/navbar';
+import { AuthShell } from '@/components/auth-shell';
+import { Card } from '@/components/ui/card';
+import { Field, Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -60,79 +63,67 @@ export default function RegisterPage() {
     }
   }
 
-  const inputClass =
-    'rounded-lg border border-navy-200 px-3 py-2.5 text-base outline-none focus:border-navy-500 focus:ring-2 focus:ring-navy-200';
-
   return (
-    <>
-      <Navbar />
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 pt-20 pb-10">
-        <h1 className="mb-1 text-2xl font-bold text-navy-900">Crear cuenta</h1>
-        <p className="mb-6 text-sm text-navy-500">
-          Únete a la comunidad de navegantes.
-        </p>
+    <AuthShell>
+      <h1 className="mb-1 text-2xl font-bold text-navy-900 md:text-3xl">
+        Crear cuenta
+      </h1>
+      <p className="mb-6 text-sm text-navy-500">
+        Únete a la comunidad de navegantes.
+      </p>
 
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm"
-        >
-          <label className="flex flex-col gap-1 text-sm font-medium text-navy-800">
-            Username
-            <input
+      <Card>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Field label="Username">
+            <Input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
-              className={inputClass}
               placeholder="capitana_ana"
             />
-          </label>
+          </Field>
 
-          <label className="flex flex-col gap-1 text-sm font-medium text-navy-800">
-            Nombre completo <span className="font-normal text-navy-400">(opcional)</span>
-            <input
+          <Field
+            label="Nombre completo"
+            hint="Opcional"
+          >
+            <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
-              className={inputClass}
               placeholder="Ana García"
             />
-          </label>
+          </Field>
 
-          <label className="flex flex-col gap-1 text-sm font-medium text-navy-800">
-            Email
-            <input
+          <Field label="Email">
+            <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
-              className={inputClass}
               placeholder="tu@email.com"
             />
-          </label>
+          </Field>
 
-          <label className="flex flex-col gap-1 text-sm font-medium text-navy-800">
-            Contraseña
-            <input
+          <Field label="Contraseña">
+            <Input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
-              className={inputClass}
               placeholder="Mínimo 8 caracteres"
             />
-          </label>
+          </Field>
 
-          <label className="flex flex-col gap-1 text-sm font-medium text-navy-800">
-            Confirmar contraseña
-            <input
+          <Field label="Confirmar contraseña">
+            <Input
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               autoComplete="new-password"
-              className={inputClass}
               placeholder="Repite la contraseña"
             />
-          </label>
+          </Field>
 
           {error && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -140,25 +131,21 @@ export default function RegisterPage() {
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="mt-1 rounded-lg bg-navy-800 py-2.5 font-semibold text-white transition hover:bg-navy-700 disabled:opacity-60"
-          >
+          <Button type="submit" disabled={submitting} fullWidth className="mt-1">
             {submitting ? 'Creando cuenta…' : 'Crear cuenta'}
-          </button>
+          </Button>
         </form>
+      </Card>
 
-        <p className="mt-6 text-center text-sm text-navy-600">
-          ¿Ya tienes cuenta?{' '}
-          <Link
-            href="/auth/login"
-            className="font-semibold text-navy-800 hover:underline"
-          >
-            Inicia sesión
-          </Link>
-        </p>
-      </main>
-    </>
+      <p className="mt-6 text-center text-sm text-navy-600">
+        ¿Ya tienes cuenta?{' '}
+        <Link
+          href="/auth/login"
+          className="font-semibold text-navy-800 hover:underline"
+        >
+          Inicia sesión
+        </Link>
+      </p>
+    </AuthShell>
   );
 }

@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
-import { Navbar } from '@/components/navbar';
+import { AppShell } from '@/components/app-shell';
 import { BoatCard } from '@/components/boat-card';
+import { Card } from '@/components/ui/card';
+import { buttonClasses } from '@/components/ui/button';
 import type { MyBoat } from '@/lib/types';
 
 export default function BoatsPage() {
@@ -34,46 +36,42 @@ export default function BoatsPage() {
 
   if (loading || !user) {
     return (
-      <main className="flex flex-1 items-center justify-center">
+      <AppShell>
         <p className="text-navy-400">Cargando…</p>
-      </main>
+      </AppShell>
     );
   }
 
   return (
-    <>
-      <Navbar />
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-6 pb-24 md:pt-20">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-navy-900">Mis barcos</h1>
-          <Link
-            href="/boats/new"
-            className="rounded-lg bg-navy-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-navy-700"
-          >
-            + Agregar barco
-          </Link>
-        </div>
+    <AppShell>
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-navy-900 md:text-3xl">
+          Mis barcos
+        </h1>
+        <Link href="/boats/new" className={buttonClasses('primary', 'sm')}>
+          + Agregar barco
+        </Link>
+      </div>
 
-        {boats === null ? (
-          <p className="text-sm text-navy-400">Cargando barcos…</p>
-        ) : boats.length === 0 ? (
-          <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
-            <p className="text-4xl">⛵</p>
-            <h2 className="mt-3 font-semibold text-navy-900">
-              Sin barcos todavía
-            </h2>
-            <p className="mt-1 text-sm text-navy-500">
-              Agrega tu barco o espera una invitación para tripular.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {boats.map((boat) => (
-              <BoatCard key={`${boat.id}-${boat.relation}`} boat={boat} />
-            ))}
-          </div>
-        )}
-      </main>
-    </>
+      {boats === null ? (
+        <p className="text-sm text-navy-400">Cargando barcos…</p>
+      ) : boats.length === 0 ? (
+        <Card className="p-8 text-center md:p-10">
+          <p className="text-4xl">⛵</p>
+          <h2 className="mt-3 font-semibold text-navy-900">
+            Sin barcos todavía
+          </h2>
+          <p className="mt-1 text-sm text-navy-500">
+            Agrega tu barco o espera una invitación para tripular.
+          </p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {boats.map((boat) => (
+            <BoatCard key={`${boat.id}-${boat.relation}`} boat={boat} />
+          ))}
+        </div>
+      )}
+    </AppShell>
   );
 }

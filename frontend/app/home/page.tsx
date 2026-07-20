@@ -1,32 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
-import { Navbar } from '@/components/navbar';
+import { AppShell } from '@/components/app-shell';
 import { Username } from '@/components/username';
 import { Avatar } from '@/components/avatar';
-import type { Post } from '@/lib/types';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { timeAgo } from '@/lib/format';
+import type { MyBoat, Post } from '@/lib/types';
 
 const PAGE_SIZE = 20;
-
-function timeAgo(iso: string): string {
-  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (seconds < 60) return 'hace un momento';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `hace ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `hace ${hours} h`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `hace ${days} d`;
-  return new Date(iso).toLocaleDateString('es', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 function truncate(text: string, max = 280): string {
   return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
@@ -34,7 +22,7 @@ function truncate(text: string, max = 280): string {
 
 function PostSkeleton() {
   return (
-    <div className="animate-pulse rounded-2xl bg-white p-4 shadow-sm">
+    <div className="animate-pulse rounded-2xl bg-white p-4 shadow-sm md:p-5">
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-full bg-navy-100" />
         <div className="flex-1 space-y-2">
@@ -63,7 +51,7 @@ function PostCard({ post }: { post: Post }) {
   }, [post.id]);
 
   return (
-    <article className="rounded-2xl bg-white p-4 shadow-sm">
+    <article className="rounded-2xl bg-white p-4 shadow-sm md:p-5">
       <div className="flex items-center gap-3">
         <Avatar
           src={author?.avatar_url}
@@ -81,8 +69,10 @@ function PostCard({ post }: { post: Post }) {
         </div>
       </div>
 
-      <h2 className="mt-3 font-bold text-navy-900">{post.title}</h2>
-      <p className="mt-1 whitespace-pre-wrap text-sm text-navy-700">
+      <h2 className="mt-3 text-base font-bold text-navy-900 md:text-lg">
+        {post.title}
+      </h2>
+      <p className="mt-1 max-w-prose whitespace-pre-wrap text-sm text-navy-700 md:text-[15px]">
         {truncate(post.content)}
       </p>
 
@@ -113,6 +103,84 @@ function PostCard({ post }: { post: Post }) {
         {comments === 1 ? 'comentario' : 'comentarios'}
       </p>
     </article>
+  );
+}
+
+/** Columna lateral de accesos rápidos — visible solo en desktop (lg+). */
+function QuickAccess() {
+  const [boats, setBoats] = useState<MyBoat[] | null>(null);
+
+  useEffect(() => {
+    api
+      .get('/api/boats/mine')
+      .then((res) => setBoats(res.data.boats))
+      .catch(() => setBoats([]));
+  }, []);
+
+  return (
+    <aside className="hidden lg:block">
+      <div className="sticky top-10 flex flex-col gap-4">
+        <Card>
+          <h2 className="mb-3 text-sm font-bold text-navy-900">Accesos rápidos</h2>
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/boats/new"
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-navy-700 hover:bg-navy-50"
+            >
+              ⛵ Agregar barco
+            </Link>
+            <Link
+              href="/invitations"
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-navy-700 hover:bg-navy-50"
+            >
+              🔔 Invitaciones
+            </Link>
+            <Link
+              href="/profile"
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-navy-700 hover:bg-navy-50"
+            >
+              ⚓ Mi perfil
+            </Link>
+          </div>
+        </Card>
+
+        {boats && boats.length > 0 && (
+          <Card>
+            <h2 className="mb-3 text-sm font-bold text-navy-900">Mis barcos</h2>
+            <div className="flex flex-col gap-2">
+              {boats.slice(0, 4).map((boat) => (
+                <Link
+                  key={`${boat.id}-${boat.relation}`}
+                  href={`/boats/${boat.id}`}
+                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-navy-50"
+                >
+                  {boat.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={boat.photo_url}
+                      alt=""
+                      className="h-8 w-8 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-navy-100 text-sm">
+                      ⛵
+                    </span>
+                  )}
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-navy-900">
+                      {boat.name}
+                    </span>
+                    <span className="block truncate text-xs text-navy-400">
+                      {boat.category}
+                    </span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        )}
+      </div>
+    </aside>
   );
 }
 
@@ -165,55 +233,62 @@ export default function HomePage() {
 
   if (loading || !user) {
     return (
-      <main className="flex flex-1 items-center justify-center">
+      <AppShell width="wide">
         <p className="text-navy-400">Cargando…</p>
-      </main>
+      </AppShell>
     );
   }
 
   return (
-    <>
-      <Navbar />
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-6 pb-24 md:pt-20">
-        <h1 className="mb-4 text-xl font-bold text-navy-900">Bitácora</h1>
+    <AppShell width="wide">
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-8">
+        <div className="mx-auto w-full max-w-2xl lg:mx-0">
+          <h1 className="mb-4 text-2xl font-bold text-navy-900 md:text-3xl">
+            Bitácora
+          </h1>
 
-        {fetching ? (
-          <div className="flex flex-col gap-4">
-            <PostSkeleton />
-            <PostSkeleton />
-            <PostSkeleton />
-          </div>
-        ) : posts.length === 0 ? (
-          <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
-            <p className="text-4xl">🌊</p>
-            <h2 className="mt-3 font-semibold text-navy-900">
-              Mar en calma por aquí
-            </h2>
-            <p className="mt-1 text-sm text-navy-500">
-              Todavía no hay publicaciones. ¡Sé el primero en compartir tu
-              travesía!
-            </p>
-          </div>
-        ) : (
-          <>
+          {fetching ? (
             <div className="flex flex-col gap-4">
-              {posts.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
+              <PostSkeleton />
+              <PostSkeleton />
+              <PostSkeleton />
             </div>
+          ) : posts.length === 0 ? (
+            <Card className="p-8 text-center md:p-10">
+              <p className="text-4xl">🌊</p>
+              <h2 className="mt-3 font-semibold text-navy-900">
+                Mar en calma por aquí
+              </h2>
+              <p className="mt-1 text-sm text-navy-500">
+                Todavía no hay publicaciones. ¡Sé el primero en compartir tu
+                travesía!
+              </p>
+            </Card>
+          ) : (
+            <>
+              <div className="flex flex-col gap-4">
+                {posts.map((post) => (
+                  <PostCard key={post.id} post={post} />
+                ))}
+              </div>
 
-            {posts.length < total && (
-              <button
-                onClick={loadMore}
-                disabled={loadingMore}
-                className="mt-6 w-full rounded-lg border border-navy-200 bg-white py-2.5 font-semibold text-navy-700 hover:bg-navy-50 disabled:opacity-60"
-              >
-                {loadingMore ? 'Cargando…' : 'Cargar más'}
-              </button>
-            )}
-          </>
-        )}
-      </main>
-    </>
+              {posts.length < total && (
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="mt-6"
+                >
+                  {loadingMore ? 'Cargando…' : 'Cargar más'}
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+
+        <QuickAccess />
+      </div>
+    </AppShell>
   );
 }

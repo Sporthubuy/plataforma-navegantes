@@ -113,7 +113,7 @@ export default function AdminUsersPage() {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
           {users.map((u) => (
             <Link
               key={u.id}

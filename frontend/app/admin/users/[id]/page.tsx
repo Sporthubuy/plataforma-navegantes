@@ -139,8 +139,9 @@ export default function AdminUserDetailPage() {
         ← Volver a usuarios
       </Link>
 
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
       {/* Ficha */}
-      <div className="rounded-2xl bg-white p-6 shadow-sm">
+      <div className="rounded-2xl bg-white p-6 shadow-sm lg:col-span-2">
         <div className="flex items-center gap-4">
           <Avatar
             src={detail.avatar_url}
@@ -324,6 +325,7 @@ export default function AdminUserDetailPage() {
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

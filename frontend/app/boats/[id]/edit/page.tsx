@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/lib/auth-context';
 import { api, getApiError } from '@/lib/api';
-import { Navbar } from '@/components/navbar';
+import { AppShell } from '@/components/app-shell';
 import { BoatForm, type BoatFormData } from '@/components/boat-form';
 import type { Boat } from '@/lib/types';
 
@@ -42,9 +42,9 @@ export default function EditBoatPage() {
 
   if (loading || !user || !boat) {
     return (
-      <main className="flex flex-1 items-center justify-center">
+      <AppShell width="narrow">
         <p className="text-navy-400">Cargando…</p>
-      </main>
+      </AppShell>
     );
   }
 
@@ -66,17 +66,16 @@ export default function EditBoatPage() {
   }
 
   return (
-    <>
-      <Navbar />
-      <main className="mx-auto w-full max-w-md flex-1 px-4 pt-6 pb-24 md:pt-20">
-        <h1 className="mb-4 text-xl font-bold text-navy-900">Editar barco</h1>
-        <BoatForm
-          initial={boat}
-          submitLabel="Guardar cambios"
-          submitting={submitting}
-          onSubmit={handleSubmit}
-        />
-      </main>
-    </>
+    <AppShell width="narrow">
+      <h1 className="mb-4 text-2xl font-bold text-navy-900 md:text-3xl">
+        Editar barco
+      </h1>
+      <BoatForm
+        initial={boat}
+        submitLabel="Guardar cambios"
+        submitting={submitting}
+        onSubmit={handleSubmit}
+      />
+    </AppShell>
   );
 }

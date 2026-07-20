@@ -7,10 +7,13 @@ import toast from 'react-hot-toast';
 import axios from 'axios';
 import { useAuth } from '@/lib/auth-context';
 import { api, getApiError } from '@/lib/api';
-import { Navbar } from '@/components/navbar';
+import { AppShell } from '@/components/app-shell';
 import { Username } from '@/components/username';
 import { Avatar } from '@/components/avatar';
 import { BoatCard } from '@/components/boat-card';
+import { Card } from '@/components/ui/card';
+import { Button, buttonClasses } from '@/components/ui/button';
+import { Field, Input, Textarea } from '@/components/ui/input';
 import type { MyBoat, User } from '@/lib/types';
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
@@ -66,9 +69,9 @@ export default function ProfilePage() {
 
   if (loading || !user) {
     return (
-      <main className="flex flex-1 items-center justify-center">
+      <AppShell>
         <p className="text-navy-400">Cargando…</p>
-      </main>
+      </AppShell>
     );
   }
 
@@ -162,33 +165,33 @@ export default function ProfilePage() {
     }
   }
 
-  const inputClass =
-    'rounded-lg border border-navy-200 px-3 py-2.5 text-base outline-none focus:border-navy-500 focus:ring-2 focus:ring-navy-200';
-
   const avatarShown = avatarPreview ?? shown.avatar_url;
 
   return (
-    <>
-      <Navbar />
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-6 pb-24 md:pt-20">
-        {pendingCount > 0 && (
-          <Link
-            href="/invitations"
-            className="mb-4 flex items-center gap-3 rounded-2xl bg-navy-800 p-4 text-white shadow-sm"
-          >
-            <span className="text-xl">🔔</span>
-            <span className="flex-1 text-sm font-medium">
-              Tienes {pendingCount}{' '}
-              {pendingCount === 1
-                ? 'invitación pendiente'
-                : 'invitaciones pendientes'}
-            </span>
-            <span>›</span>
-          </Link>
-        )}
+    <AppShell>
+      <h1 className="mb-5 text-2xl font-bold text-navy-900 md:text-3xl">
+        Mi perfil
+      </h1>
 
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
-          {/* Foto de perfil grande */}
+      {pendingCount > 0 && (
+        <Link
+          href="/invitations"
+          className="mb-5 flex items-center gap-3 rounded-2xl bg-navy-800 p-4 text-white shadow-sm"
+        >
+          <span className="text-xl">🔔</span>
+          <span className="flex-1 text-sm font-medium">
+            Tienes {pendingCount}{' '}
+            {pendingCount === 1
+              ? 'invitación pendiente'
+              : 'invitaciones pendientes'}
+          </span>
+          <span>›</span>
+        </Link>
+      )}
+
+      <div className="lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start lg:gap-6">
+        {/* Columna de identidad */}
+        <Card className="lg:sticky lg:top-10">
           <div className="flex flex-col items-center">
             <button
               type="button"
@@ -221,9 +224,9 @@ export default function ProfilePage() {
               onChange={(e) => handleAvatarSelected(e.target.files?.[0] ?? null)}
             />
 
-            <h1 className="mt-3 text-xl font-bold text-navy-900">
+            <h2 className="mt-3 text-xl font-bold text-navy-900">
               {shown.name || shown.username}
-            </h1>
+            </h2>
             <Username username={shown.username} className="text-sm" />
             {profile?.created_at && (
               <p className="mt-1 text-xs text-navy-400">
@@ -234,8 +237,7 @@ export default function ProfilePage() {
 
           {editing ? (
             <form onSubmit={handleSave} className="mt-6 flex flex-col gap-4">
-              <label className="flex flex-col gap-1 text-sm font-medium text-navy-800">
-                Username
+              <Field label="Username" error={usernameError}>
                 <div
                   className={`flex items-center rounded-lg border px-3 focus-within:ring-2 ${
                     usernameError
@@ -256,118 +258,113 @@ export default function ProfilePage() {
                     autoCorrect="off"
                   />
                 </div>
-                {usernameError && (
-                  <span className="text-xs font-normal text-red-600">
-                    {usernameError}
-                  </span>
-                )}
-              </label>
-              <label className="flex flex-col gap-1 text-sm font-medium text-navy-800">
-                Nombre
-                <input
+              </Field>
+              <Field label="Nombre">
+                <Input
                   value={form.name}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, name: e.target.value }))
                   }
-                  className={inputClass}
                 />
-              </label>
-              <label className="flex flex-col gap-1 text-sm font-medium text-navy-800">
-                Bio
-                <textarea
+              </Field>
+              <Field label="Bio">
+                <Textarea
                   value={form.bio}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, bio: e.target.value }))
                   }
                   rows={3}
-                  className={inputClass}
                   placeholder="Cuéntanos sobre ti y tu barco…"
                 />
-              </label>
+              </Field>
               <div className="flex gap-3">
-                <button
+                <Button
                   type="submit"
                   disabled={saving || uploadingAvatar}
-                  className="flex-1 rounded-lg bg-navy-800 py-2.5 font-semibold text-white hover:bg-navy-700 disabled:opacity-60"
+                  fullWidth
                 >
                   {saving ? 'Guardando…' : 'Guardar'}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="secondary"
+                  fullWidth
                   onClick={() => {
                     setEditing(false);
                     setUsernameError('');
                   }}
-                  className="flex-1 rounded-lg border border-navy-200 py-2.5 font-semibold text-navy-700 hover:bg-navy-50"
                 >
                   Cancelar
-                </button>
+                </Button>
               </div>
             </form>
           ) : (
             <>
-              <p className="mt-5 text-center whitespace-pre-wrap text-sm text-navy-700">
+              <p className="mt-5 max-w-prose text-center text-sm whitespace-pre-wrap text-navy-700">
                 {shown.bio || 'Sin bio todavía. ¡Cuéntanos sobre ti!'}
               </p>
-              <button
-                onClick={startEditing}
-                className="mt-5 w-full rounded-lg bg-navy-800 py-2.5 font-semibold text-white hover:bg-navy-700"
-              >
+              <Button onClick={startEditing} fullWidth className="mt-5">
                 Editar perfil
-              </button>
+              </Button>
             </>
           )}
-        </div>
+        </Card>
 
-        {/* Mis barcos */}
-        <section className="mt-6">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-navy-900">Mis barcos</h2>
-            <Link
-              href="/boats/new"
-              className="rounded-lg bg-navy-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-navy-700"
+        {/* Columna de contenido */}
+        <div className="mt-6 lg:mt-0">
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-navy-900 md:text-xl">
+                Mis barcos
+              </h2>
+              <Link
+                href="/boats/new"
+                className={buttonClasses('primary', 'sm')}
+              >
+                + Agregar barco
+              </Link>
+            </div>
+
+            {boats === null ? (
+              <p className="text-sm text-navy-400">Cargando barcos…</p>
+            ) : boats.length === 0 ? (
+              <Card className="p-6 text-center">
+                <p className="text-3xl">⛵</p>
+                <p className="mt-2 text-sm text-navy-500">
+                  Todavía no tienes barcos. ¡Agrega el primero!
+                </p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {boats.map((boat) => (
+                  <BoatCard key={`${boat.id}-${boat.relation}`} boat={boat} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <Button
+              variant="secondary"
+              fullWidth
+              onClick={() => {
+                logout();
+                router.replace('/auth/login');
+              }}
             >
-              + Agregar barco
-            </Link>
+              Cerrar sesión
+            </Button>
+            <Button
+              variant="danger"
+              fullWidth
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? 'Eliminando…' : 'Eliminar cuenta'}
+            </Button>
           </div>
-
-          {boats === null ? (
-            <p className="text-sm text-navy-400">Cargando barcos…</p>
-          ) : boats.length === 0 ? (
-            <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
-              <p className="text-3xl">⛵</p>
-              <p className="mt-2 text-sm text-navy-500">
-                Todavía no tienes barcos. ¡Agrega el primero!
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {boats.map((boat) => (
-                <BoatCard key={`${boat.id}-${boat.relation}`} boat={boat} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <div className="mt-6 flex flex-col gap-3">
-          <button
-            onClick={() => {
-              logout();
-              router.replace('/auth/login');
-            }}
-            className="rounded-lg border border-navy-200 bg-white py-2.5 font-semibold text-navy-700 hover:bg-navy-50"
-          >
-            Cerrar sesión
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="rounded-lg border border-red-200 bg-white py-2.5 font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
-          >
-            {deleting ? 'Eliminando…' : 'Eliminar cuenta'}
-          </button>
         </div>
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

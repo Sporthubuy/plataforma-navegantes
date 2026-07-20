@@ -7,6 +7,9 @@ import { api, getApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { Username } from '@/components/username';
 import { BOAT_CATEGORIES } from '@/components/boat-form';
+import { Modal } from '@/components/ui/modal';
+import { Button } from '@/components/ui/button';
+import { Field, Input, Select } from '@/components/ui/input';
 import { formatDate } from '@/lib/format';
 import type { AdminBoat } from '@/lib/types';
 
@@ -55,76 +58,42 @@ function EditBoatModal({
     }
   }
 
-  const inputClass =
-    'rounded-lg border border-navy-200 px-3 py-2.5 text-base outline-none focus:border-navy-500 focus:ring-2 focus:ring-navy-200';
-
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-navy-950/50 md:items-center"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-2xl bg-white p-6 md:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-navy-900">Editar barco</h2>
-          <button
-            onClick={onClose}
-            className="rounded-full px-2 py-0.5 text-navy-400 hover:bg-navy-50"
+    <Modal title="Editar barco" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <Field label="Nombre">
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="Número de vela">
+          <Input
+            value={sailNumber}
+            onChange={(e) => setSailNumber(e.target.value)}
+          />
+        </Field>
+        <Field label="Categoría">
+          <Select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
           >
-            ✕
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1 text-sm font-medium text-navy-800">
-            Nombre
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={inputClass}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm font-medium text-navy-800">
-            Número de vela
-            <input
-              value={sailNumber}
-              onChange={(e) => setSailNumber(e.target.value)}
-              className={inputClass}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm font-medium text-navy-800">
-            Categoría
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className={`${inputClass} bg-white`}
-            >
-              {BOAT_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
-          {category === 'Otra' && (
-            <input
-              value={customCategory}
-              onChange={(e) => setCustomCategory(e.target.value)}
-              className={inputClass}
-              placeholder="Escribe la clase"
-            />
-          )}
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-lg bg-navy-800 py-2.5 font-semibold text-white hover:bg-navy-700 disabled:opacity-60"
-          >
-            {saving ? 'Guardando…' : 'Guardar cambios'}
-          </button>
-        </form>
-      </div>
-    </div>
+            {BOAT_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {category === 'Otra' && (
+          <Input
+            value={customCategory}
+            onChange={(e) => setCustomCategory(e.target.value)}
+            placeholder="Escribe la clase"
+          />
+        )}
+        <Button type="submit" disabled={saving} fullWidth>
+          {saving ? 'Guardando…' : 'Guardar cambios'}
+        </Button>
+      </form>
+    </Modal>
   );
 }
 
@@ -198,7 +167,7 @@ export default function AdminBoatsPage() {
           <p className="text-sm text-navy-500">No hay barcos.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
           {boats.map((boat) => (
             <div
               key={boat.id}
