@@ -6,6 +6,7 @@ import { isValidUsername } from '../lib/validation';
 import { extForMime, imageUpload } from '../lib/upload';
 import { getUserPermissions } from '../middleware/permissions';
 import { sanitizeProfileExtras } from '../lib/profile-fields';
+import { computeStandings } from '../lib/scoring';
 
 const router = Router();
 
@@ -151,6 +152,117 @@ router.get(
       return res.status(404).json({ error: 'Perfil no encontrado' });
     }
     return res.json({ profile: data });
+  })
+);
+
+/**
+ * GET /api/users/:id/regatta-history — público.
+ * Historial de regatas del usuario (barcos propios inscriptos), con
+ * posición final si la regata está terminada. Más reciente primero.
+ */
+router.get(
+  '/:id/regatta-history',
+  asyncHandler(async (req, res) => {
+    const userId = req.params.id;
+
+    const { data: boats } = await supabaseAdmin
+      .from('boats')
+      .select('id, name')
+      .eq('owner_id', userId);
+    const boatIds = (boats ?? []).map((b) => b.id);
+    if (boatIds.length === 0) {
+      return res.json({ history: [] });
+    }
+    const boatName = new Map((boats ?? []).map((b) => [b.id, b.name]));
+
+    const { data: entries } = await supabaseAdmin
+      .from('regatta_entries')
+      .select(
+        'id, boat_id, regatta:regattas(id, name, sailing_class, location, start_date, status, discards_count)'
+      )
+      .in('boat_id', boatIds)
+      .eq('status', 'confirmed');
+
+    // Posiciones finales para regatas terminadas (una pasada por regata).
+    const finishedIds = [
+      ...new Set(
+        (entries ?? [])
+          .map((e) => e.regatta as unknown as { id: string; status: string } | null)
+          .filter((r): r is { id: string; status: string } => r?.status === 'finished')
+          .map((r) => r.id)
+      ),
+    ];
+
+    const rankByEntry = new Map<string, { position: number; total_entries: number; points: number }>();
+    await Promise.all(
+      finishedIds.map(async (regattaId) => {
+        const [{ data: regEntries }, { data: races }] = await Promise.all([
+          supabaseAdmin
+            .from('regatta_entries')
+            .select('id')
+            .eq('regatta_id', regattaId)
+            .eq('status', 'confirmed'),
+          supabaseAdmin
+            .from('races')
+            .select('id, race_number, status')
+            .eq('regatta_id', regattaId),
+        ]);
+        const entryIds = (regEntries ?? []).map((e) => e.id);
+        const raceIds = (races ?? []).map((r) => r.id);
+        let results: Array<{ race_id: string; entry_id: string; position: number | null; code: string | null }> = [];
+        if (raceIds.length > 0) {
+          const { data: rr } = await supabaseAdmin
+            .from('race_results')
+            .select('race_id, entry_id, position, code')
+            .in('race_id', raceIds);
+          results = rr ?? [];
+        }
+        const { data: reg } = await supabaseAdmin
+          .from('regattas')
+          .select('discards_count')
+          .eq('id', regattaId)
+          .maybeSingle();
+        const standings = computeStandings(entryIds, races ?? [], results, reg?.discards_count ?? 0);
+        for (const s of standings) {
+          rankByEntry.set(s.entry_id, {
+            position: s.rank,
+            total_entries: entryIds.length,
+            points: s.total,
+          });
+        }
+      })
+    );
+
+    const history = (entries ?? [])
+      .map((e) => {
+        const regatta = e.regatta as unknown as {
+          id: string;
+          name: string;
+          sailing_class: string;
+          location: string | null;
+          start_date: string;
+          status: string;
+        } | null;
+        if (!regatta) return null;
+        const rank = rankByEntry.get(e.id);
+        return {
+          entry_id: e.id,
+          regatta_id: regatta.id,
+          regatta_name: regatta.name,
+          sailing_class: regatta.sailing_class,
+          location: regatta.location,
+          start_date: regatta.start_date,
+          status: regatta.status,
+          boat_name: boatName.get(e.boat_id) ?? null,
+          position: rank?.position ?? null,
+          total_entries: rank?.total_entries ?? null,
+          points: rank?.points ?? null,
+        };
+      })
+      .filter((x) => x !== null)
+      .sort((a, b) => (a!.start_date < b!.start_date ? 1 : -1));
+
+    return res.json({ history });
   })
 );
 

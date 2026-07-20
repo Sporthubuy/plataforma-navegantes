@@ -10,6 +10,10 @@ export const PERMISSION_CATALOG: Record<string, string> = {
   'boats.view_all': 'Ver todos los barcos de la plataforma',
   'boats.edit_all': 'Editar y eliminar cualquier barco',
   'boats.create_all': 'Crear barcos a nombre de cualquier usuario',
+  'regattas.create': 'Crear regatas',
+  'regattas.edit': 'Editar regatas y cambiar su estado',
+  'regattas.delete': 'Eliminar regatas',
+  'regattas.manage_results': 'Gestionar mangas y cargar resultados',
 };
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSION_CATALOG);
