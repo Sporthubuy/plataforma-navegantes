@@ -6,6 +6,22 @@ export interface User {
   bio: string | null;
   avatar_url: string | null;
   created_at?: string;
+  // Datos náuticos
+  club?: string | null;
+  sailing_class?: string | null;
+  usual_role?: string | null;
+  location?: string | null;
+  // Redes / contacto
+  instagram?: string | null;
+  facebook?: string | null;
+  youtube?: string | null;
+  website?: string | null;
+}
+
+export interface ProfileStats {
+  boats_owned: number;
+  crews_joined: number;
+  member_since: string;
 }
 
 export interface PostAuthor {

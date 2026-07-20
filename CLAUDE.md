@@ -54,6 +54,15 @@ Diseño (respetarlo tal cual):
 - **Enforcement siempre en el backend** con la service role key (`requirePermission`). El frontend recibe la lista de permisos solo para decidir qué UI mostrar — nunca es la autoridad.
 - Escrituras directas de clientes a `user_permissions` bloqueadas por RLS; solo el backend (service role) la modifica.
 
+## Perfil de navegante ampliado
+
+Campos adicionales en `profiles` (todos nullable):
+
+- **Datos náuticos:** `club` (texto libre por ahora; cuando existan cuentas `club`/`federation` migrará a una relación `club_id`), `sailing_class` (clase en la que navega, texto libre), `usual_role` (rol habitual a bordo), `location` (zona de navegación).
+- **Redes / contacto:** `instagram` (solo el handle, sin `@` ni URL), `facebook` y `youtube` (URL o handle), `website` (URL completa con `http(s)://`, CHECK suave en DB).
+- La **sanitización fuerte va en el backend** (PUT `/profile/:id`): trim, límites de longitud, normalización del handle de Instagram (quita `@`/URL) y validación de URLs; el frontend arma las URLs públicas a partir del dato crudo.
+- **Estadísticas** públicas por `GET /profile/:id/stats`: `boats_owned`, `crews_joined` (aceptadas) y `member_since`.
+
 ## Convenciones
 
 - **Puertos:** backend en `3001`, frontend en `3000`.

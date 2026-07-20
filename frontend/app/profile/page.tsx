@@ -11,12 +11,28 @@ import { AppShell } from '@/components/app-shell';
 import { Username } from '@/components/username';
 import { Avatar } from '@/components/avatar';
 import { BoatCard } from '@/components/boat-card';
+import { BOAT_CATEGORIES } from '@/components/boat-form';
 import { Card } from '@/components/ui/card';
 import { Button, buttonClasses } from '@/components/ui/button';
-import { Field, Input, Textarea } from '@/components/ui/input';
-import type { MyBoat, User } from '@/lib/types';
+import { Field, Input, Textarea, Select, controlClasses } from '@/components/ui/input';
+import {
+  NauticalData,
+  SocialLinks,
+  StatsStrip,
+} from '@/components/profile/profile-extras';
+import type { MyBoat, ProfileStats, User } from '@/lib/types';
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
+const INSTAGRAM_RE = /^[A-Za-z0-9._]{1,30}$/;
+const CREW_ROLES = [
+  'Timonel',
+  'Proa',
+  'Táctico',
+  'Trimmer',
+  'Piano',
+  'Stratega',
+  'Otro',
+];
 
 function formatDate(iso: string | undefined): string {
   if (!iso) return '';
@@ -27,30 +43,72 @@ function formatDate(iso: string | undefined): string {
   });
 }
 
+function isHttpUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+interface ProfileForm {
+  username: string;
+  name: string;
+  bio: string;
+  club: string;
+  classSelect: string;
+  classCustom: string;
+  roleSelect: string;
+  roleCustom: string;
+  location: string;
+  instagram: string;
+  facebook: string;
+  youtube: string;
+  website: string;
+}
+
+const EMPTY_FORM: ProfileForm = {
+  username: '',
+  name: '',
+  bio: '',
+  club: '',
+  classSelect: '',
+  classCustom: '',
+  roleSelect: '',
+  roleCustom: '',
+  location: '',
+  instagram: '',
+  facebook: '',
+  youtube: '',
+  website: '',
+};
+
 export default function ProfilePage() {
   const { user, loading, logout, updateUser } = useAuth();
   const router = useRouter();
 
   const [profile, setProfile] = useState<User | null>(null);
   const [boats, setBoats] = useState<MyBoat[] | null>(null);
+  const [stats, setStats] = useState<ProfileStats | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ username: '', name: '', bio: '' });
+  const [form, setForm] = useState<ProfileForm>(EMPTY_FORM);
   const [usernameError, setUsernameError] = useState('');
+  const [websiteError, setWebsiteError] = useState('');
+  const [instagramError, setInstagramError] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Requiere sesión.
   useEffect(() => {
     if (!loading && !user) {
       router.replace('/auth/login');
     }
   }, [loading, user, router]);
 
-  // Perfil completo + mis barcos + invitaciones pendientes.
   useEffect(() => {
     if (!user) return;
     api
@@ -61,6 +119,10 @@ export default function ProfilePage() {
       .get('/api/boats/mine')
       .then((res) => setBoats(res.data.boats))
       .catch(() => setBoats([]));
+    api
+      .get(`/api/users/profile/${user.id}/stats`)
+      .then((res) => setStats(res.data))
+      .catch(() => setStats(null));
     api
       .get('/api/crew/invitations')
       .then((res) => setPendingCount(res.data.invitations.length))
@@ -82,21 +144,43 @@ export default function ProfilePage() {
     if (!normalized) {
       setUsernameError('El username es obligatorio');
     } else if (!USERNAME_RE.test(normalized)) {
-      setUsernameError(
-        '3-20 caracteres: solo minúsculas, números y guion bajo'
-      );
+      setUsernameError('3-20 caracteres: solo minúsculas, números y guion bajo');
     } else {
       setUsernameError('');
     }
   }
 
   function startEditing() {
+    const knownClass =
+      shown.sailing_class && BOAT_CATEGORIES.includes(shown.sailing_class)
+        ? shown.sailing_class
+        : shown.sailing_class
+          ? 'Otra'
+          : '';
+    const knownRole =
+      shown.usual_role && CREW_ROLES.includes(shown.usual_role)
+        ? shown.usual_role
+        : shown.usual_role
+          ? 'Otro'
+          : '';
     setForm({
       username: shown.username,
       name: shown.name ?? '',
       bio: shown.bio ?? '',
+      club: shown.club ?? '',
+      classSelect: knownClass,
+      classCustom: knownClass === 'Otra' ? (shown.sailing_class ?? '') : '',
+      roleSelect: knownRole,
+      roleCustom: knownRole === 'Otro' ? (shown.usual_role ?? '') : '',
+      location: shown.location ?? '',
+      instagram: shown.instagram ?? '',
+      facebook: shown.facebook ?? '',
+      youtube: shown.youtube ?? '',
+      website: shown.website ?? '',
     });
     setUsernameError('');
+    setWebsiteError('');
+    setInstagramError('');
     setEditing(true);
   }
 
@@ -124,6 +208,12 @@ export default function ProfilePage() {
     const normalized = form.username.trim().toLowerCase().replace(/^@/, '');
     validateUsernameLive(normalized);
     if (!USERNAME_RE.test(normalized)) return;
+    if (websiteError || instagramError) return;
+
+    const sailingClass =
+      form.classSelect === 'Otra' ? form.classCustom.trim() : form.classSelect;
+    const usualRole =
+      form.roleSelect === 'Otro' ? form.roleCustom.trim() : form.roleSelect;
 
     setSaving(true);
     try {
@@ -131,6 +221,14 @@ export default function ProfilePage() {
         username: normalized,
         name: form.name.trim() || null,
         bio: form.bio.trim() || null,
+        club: form.club.trim() || null,
+        sailing_class: sailingClass || null,
+        usual_role: usualRole || null,
+        location: form.location.trim() || null,
+        instagram: form.instagram.trim() || null,
+        facebook: form.facebook.trim() || null,
+        youtube: form.youtube.trim() || null,
+        website: form.website.trim() || null,
       });
       setProfile(res.data.profile);
       updateUser(res.data.profile);
@@ -166,6 +264,7 @@ export default function ProfilePage() {
   }
 
   const avatarShown = avatarPreview ?? shown.avatar_url;
+  const set = (patch: Partial<ProfileForm>) => setForm((f) => ({ ...f, ...patch }));
 
   return (
     <AppShell>
@@ -236,47 +335,173 @@ export default function ProfilePage() {
           </div>
 
           {editing ? (
-            <form onSubmit={handleSave} className="mt-6 flex flex-col gap-4">
-              <Field label="Username" error={usernameError}>
-                <div
-                  className={`flex items-center rounded-lg border px-3 focus-within:ring-2 ${
-                    usernameError
-                      ? 'border-red-300 focus-within:ring-red-200'
-                      : 'border-navy-200 focus-within:border-navy-500 focus-within:ring-navy-200'
-                  }`}
-                >
-                  <span className="text-base text-navy-400">@</span>
-                  <input
-                    value={form.username}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/^@/, '');
-                      setForm((f) => ({ ...f, username: value }));
-                      validateUsernameLive(value);
-                    }}
-                    className="w-full bg-transparent py-2.5 pl-0.5 text-base outline-none"
-                    autoCapitalize="none"
-                    autoCorrect="off"
+            <form onSubmit={handleSave} className="mt-6 flex flex-col gap-5">
+              {/* Identidad */}
+              <div className="flex flex-col gap-4">
+                <Field label="Username" error={usernameError}>
+                  <div
+                    className={`flex items-center rounded-lg border px-3 focus-within:ring-2 ${
+                      usernameError
+                        ? 'border-red-300 focus-within:ring-red-200'
+                        : 'border-navy-200 focus-within:border-navy-500 focus-within:ring-navy-200'
+                    }`}
+                  >
+                    <span className="text-base text-navy-400">@</span>
+                    <input
+                      value={form.username}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/^@/, '');
+                        set({ username: value });
+                        validateUsernameLive(value);
+                      }}
+                      className="w-full bg-transparent py-2.5 pl-0.5 text-base outline-none"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                    />
+                  </div>
+                </Field>
+                <Field label="Nombre">
+                  <Input
+                    value={form.name}
+                    onChange={(e) => set({ name: e.target.value })}
                   />
-                </div>
-              </Field>
-              <Field label="Nombre">
-                <Input
-                  value={form.name}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, name: e.target.value }))
-                  }
-                />
-              </Field>
-              <Field label="Bio">
-                <Textarea
-                  value={form.bio}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, bio: e.target.value }))
-                  }
-                  rows={3}
-                  placeholder="Cuéntanos sobre ti y tu barco…"
-                />
-              </Field>
+                </Field>
+                <Field label="Bio">
+                  <Textarea
+                    value={form.bio}
+                    onChange={(e) => set({ bio: e.target.value })}
+                    rows={3}
+                    placeholder="Cuéntanos sobre ti y tu barco…"
+                  />
+                </Field>
+              </div>
+
+              {/* Datos de navegación */}
+              <fieldset className="flex flex-col gap-4 border-t border-navy-100 pt-5">
+                <legend className="text-sm font-bold text-navy-900">
+                  Datos de navegación
+                </legend>
+                <Field label="Club o afiliación">
+                  <Input
+                    value={form.club}
+                    onChange={(e) => set({ club: e.target.value })}
+                    placeholder="Yacht Club Uruguayo"
+                  />
+                </Field>
+                <Field label="Clase / categoría">
+                  <Select
+                    value={form.classSelect}
+                    onChange={(e) => set({ classSelect: e.target.value })}
+                  >
+                    <option value="">Sin especificar</option>
+                    {BOAT_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                {form.classSelect === 'Otra' && (
+                  <Input
+                    value={form.classCustom}
+                    onChange={(e) => set({ classCustom: e.target.value })}
+                    placeholder="Escribe tu clase"
+                  />
+                )}
+                <Field label="Rol habitual a bordo">
+                  <Select
+                    value={form.roleSelect}
+                    onChange={(e) => set({ roleSelect: e.target.value })}
+                  >
+                    <option value="">Sin especificar</option>
+                    {CREW_ROLES.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                {form.roleSelect === 'Otro' && (
+                  <Input
+                    value={form.roleCustom}
+                    onChange={(e) => set({ roleCustom: e.target.value })}
+                    placeholder="Escribe tu rol"
+                  />
+                )}
+                <Field label="Ubicación / zona de navegación">
+                  <Input
+                    value={form.location}
+                    onChange={(e) => set({ location: e.target.value })}
+                    placeholder="Río de la Plata, Uruguay"
+                  />
+                </Field>
+              </fieldset>
+
+              {/* Redes y contacto */}
+              <fieldset className="flex flex-col gap-4 border-t border-navy-100 pt-5">
+                <legend className="text-sm font-bold text-navy-900">
+                  Redes y contacto
+                </legend>
+                <Field label="Instagram" error={instagramError}>
+                  <div
+                    className={`flex items-center rounded-lg border px-3 focus-within:ring-2 ${
+                      instagramError
+                        ? 'border-red-300 focus-within:ring-red-200'
+                        : 'border-navy-200 focus-within:border-navy-500 focus-within:ring-navy-200'
+                    }`}
+                  >
+                    <span className="text-base text-navy-400">@</span>
+                    <input
+                      value={form.instagram}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/^@/, '');
+                        set({ instagram: value });
+                        setInstagramError(
+                          value && !INSTAGRAM_RE.test(value)
+                            ? 'Handle inválido (letras, números, punto o _)'
+                            : ''
+                        );
+                      }}
+                      className="w-full bg-transparent py-2.5 pl-0.5 text-base outline-none"
+                      placeholder="juan.navega"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                    />
+                  </div>
+                </Field>
+                <Field label="Facebook">
+                  <Input
+                    value={form.facebook}
+                    onChange={(e) => set({ facebook: e.target.value })}
+                    placeholder="facebook.com/tu.pagina"
+                  />
+                </Field>
+                <Field label="YouTube">
+                  <Input
+                    value={form.youtube}
+                    onChange={(e) => set({ youtube: e.target.value })}
+                    placeholder="@tucanal"
+                  />
+                </Field>
+                <Field label="Sitio web" error={websiteError}>
+                  <input
+                    type="url"
+                    value={form.website}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      set({ website: value });
+                      setWebsiteError(
+                        value.trim() && !isHttpUrl(value.trim())
+                          ? 'Debe empezar con http:// o https://'
+                          : ''
+                      );
+                    }}
+                    className={controlClasses}
+                    placeholder="https://tusitio.com"
+                  />
+                </Field>
+              </fieldset>
+
               <div className="flex gap-3">
                 <Button
                   type="submit"
@@ -292,6 +517,8 @@ export default function ProfilePage() {
                   onClick={() => {
                     setEditing(false);
                     setUsernameError('');
+                    setWebsiteError('');
+                    setInstagramError('');
                   }}
                 >
                   Cancelar
@@ -303,6 +530,10 @@ export default function ProfilePage() {
               <p className="mt-5 max-w-prose text-center text-sm whitespace-pre-wrap text-navy-700">
                 {shown.bio || 'Sin bio todavía. ¡Cuéntanos sobre ti!'}
               </p>
+
+              <NauticalData profile={shown} />
+              <SocialLinks profile={shown} />
+
               <Button onClick={startEditing} fullWidth className="mt-5">
                 Editar perfil
               </Button>
@@ -312,15 +543,18 @@ export default function ProfilePage() {
 
         {/* Columna de contenido */}
         <div className="mt-6 lg:mt-0">
+          {stats && (
+            <div className="mb-6">
+              <StatsStrip stats={stats} />
+            </div>
+          )}
+
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-bold text-navy-900 md:text-xl">
                 Mis barcos
               </h2>
-              <Link
-                href="/boats/new"
-                className={buttonClasses('primary', 'sm')}
-              >
+              <Link href="/boats/new" className={buttonClasses('primary', 'sm')}>
                 + Agregar barco
               </Link>
             </div>

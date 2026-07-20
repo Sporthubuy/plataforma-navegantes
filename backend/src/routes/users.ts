@@ -5,12 +5,14 @@ import { asyncHandler } from '../lib/async-handler';
 import { isValidUsername } from '../lib/validation';
 import { extForMime, imageUpload } from '../lib/upload';
 import { getUserPermissions } from '../middleware/permissions';
+import { sanitizeProfileExtras } from '../lib/profile-fields';
 
 const router = Router();
 
-const PROFILE_FIELDS = 'id, username, name, bio, avatar_url, created_at';
-const ME_FIELDS =
-  'id, username, name, bio, avatar_url, created_at, account_type, status';
+const EXTRA_FIELDS =
+  'club, sailing_class, usual_role, location, instagram, facebook, youtube, website';
+const PROFILE_FIELDS = `id, username, name, bio, avatar_url, created_at, ${EXTRA_FIELDS}`;
+const ME_FIELDS = `id, username, name, bio, avatar_url, created_at, account_type, status, ${EXTRA_FIELDS}`;
 
 /** Quita el @ inicial (si lo escribieron) y normaliza a minúsculas. */
 export function normalizeUsername(value: string): string {
@@ -153,8 +155,51 @@ router.get(
 );
 
 /**
+ * GET /api/users/profile/:id/stats — público.
+ * Estadísticas del navegante: barcos propios, tripulaciones aceptadas
+ * y fecha de alta (para calcular antigüedad).
+ */
+router.get(
+  '/profile/:id/stats',
+  asyncHandler(async (req, res) => {
+    const userId = req.params.id;
+
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('created_at')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!profile) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+
+    const [boats, crews] = await Promise.all([
+      supabaseAdmin
+        .from('boats')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_id', userId),
+      supabaseAdmin
+        .from('crew_members')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'accepted'),
+    ]);
+
+    if (boats.error) throw boats.error;
+    if (crews.error) throw crews.error;
+
+    return res.json({
+      boats_owned: boats.count ?? 0,
+      crews_joined: crews.count ?? 0,
+      member_since: profile.created_at,
+    });
+  })
+);
+
+/**
  * PUT /api/users/profile/:id — requiere auth, solo el dueño.
- * Campos editables: username, name, bio, avatar_url.
+ * Campos editables: username, name, bio, avatar_url, datos náuticos y redes.
  */
 router.put(
   '/profile/:id',
@@ -197,6 +242,13 @@ router.put(
     if (name !== undefined) updates.name = name;
     if (bio !== undefined) updates.bio = bio;
     if (avatar_url !== undefined) updates.avatar_url = avatar_url;
+
+    // Datos náuticos y redes (sanitizados).
+    const extras = sanitizeProfileExtras(req.body ?? {});
+    if ('error' in extras) {
+      return res.status(extras.error.status).json({ error: extras.error.message });
+    }
+    Object.assign(updates, extras.updates);
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No hay campos para actualizar' });
