@@ -42,6 +42,18 @@ Plataforma web estilo red social para **navegantes** (nombre aún por definir).
 - En la base se guardan **sin `@`** — el `@` es solo presentación en el frontend.
 - Formato: **minúsculas, números y guión bajo, 3-20 caracteres** (`^[a-z0-9_]{3,20}$`), con CHECK constraint en `profiles.username`.
 
+## Fase 3 (alcance actual): sistema de administración
+
+Diseño (respetarlo tal cual):
+
+- **Dos conceptos separados:** el *rol de plataforma* (qué permisos tiene el usuario en el sistema) y el *tipo de cuenta* (`profiles.account_type`: qué es la entidad — `sailor` navegante individual, `club` u `federation` organizaciones).
+- **Permisos granulares:** cada usuario tiene una **lista de permisos** en la tabla `user_permissions` (no un rol único). Catálogo inicial: `users.view`, `users.suspend`, `users.delete`, `users.grant_permissions`, `boats.view_all`, `boats.edit_all`, `boats.create_all`.
+- Hoy hay **un solo administrador** (el dueño), pero el modelo soporta varios.
+- **Suspensión:** `profiles.status` (`active`/`suspended`) + `suspended_at` y `suspended_reason`. Un usuario suspendido queda bloqueado de toda la API (403 "Cuenta suspendida") pero su perfil sigue siendo legible.
+- **Actividad:** `profiles.last_active_at`, actualizado por el backend en requests autenticados (throttle ~5 min) para métricas de "activos hoy".
+- **Enforcement siempre en el backend** con la service role key (`requirePermission`). El frontend recibe la lista de permisos solo para decidir qué UI mostrar — nunca es la autoridad.
+- Escrituras directas de clientes a `user_permissions` bloqueadas por RLS; solo el backend (service role) la modifica.
+
 ## Convenciones
 
 - **Puertos:** backend en `3001`, frontend en `3000`.
