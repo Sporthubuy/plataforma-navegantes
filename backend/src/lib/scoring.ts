@@ -1,25 +1,31 @@
 /**
- * Low Point System (World Sailing RRS Apéndice A).
+ * Low Point System (World Sailing RRS Apéndice A) — por CLASE de regata.
  *
  * - Cada manga: los puntos de un barco son su posición de llegada
  *   (1º = 1 pt, 2º = 2 pts, …). Gana quien MENOS suma.
  * - Códigos especiales (DNF, DNS, DSQ, DNC, OCS, RET) y las mangas
  *   completadas sin resultado puntúan como `nInscriptos + 1` (A9/A5.2).
- * - El total es la suma de las mangas, restando los `discardsCount`
- *   peores resultados (descartes; 0 = ninguno).
- * - Desempates (A8): a igualdad de total, gana quien tenga más 1ros;
- *   si persiste, más 2dos, etc. (A8.1). Si aún hay empate, se compara
- *   el resultado de la última manga, luego la anterior, etc. (A8.2).
+ *
+ * DESCARTES (por clase, `discards_count`):
+ * - Se descartan las N peores mangas de cada barco (las de MAYOR puntaje).
+ * - Regla de activación: el primer descarte recién cuenta a partir de
+ *   `discardThreshold` mangas COMPLETADAS (default 4). Con menos mangas
+ *   no se descarta nada aunque `discardsCount > 0`.
+ * - Nunca se descartan tantas mangas como para dejar 0 puntuando: el
+ *   máximo efectivo es `completadas - 1`.
+ * - Se expone el total BRUTO (todas las mangas) y el NETO (con descartes),
+ *   y qué mangas quedaron descartadas por barco (para marcarlas en la UI).
+ *
+ * DESEMPATES (A8): a igual total neto gana quien tenga más 1ros; si
+ * persiste, más 2dos, etc. (A8.1). Si aún hay empate, se compara el
+ * resultado de la última manga, luego la anterior (A8.2).
  */
 
 export const SPECIAL_CODES = ['DNF', 'DNS', 'DSQ', 'DNC', 'OCS', 'RET'] as const;
 export type SpecialCode = (typeof SPECIAL_CODES)[number];
 
-export interface ScoringResult {
-  entry_id: string;
-  position: number | null;
-  code: string | null;
-}
+/** Mangas completadas necesarias para que aplique el primer descarte. */
+export const DEFAULT_DISCARD_THRESHOLD = 4;
 
 export interface ScoringRace {
   id: string;
@@ -27,33 +33,39 @@ export interface ScoringRace {
   status: string;
 }
 
-/**
- * Puntos de penalización estándar: cantidad de inscriptos + 1.
- * Se usa para códigos especiales y para mangas completadas sin resultado.
- */
+/** Puntos de penalización estándar: cantidad de inscriptos + 1. */
 export function penaltyPoints(entriesCount: number): number {
   return entriesCount + 1;
 }
 
 /**
- * Puntos de un resultado individual bajo Low Point.
- * Si trae código especial → penalización; si no, la posición.
+ * Cuántos descartes se aplican realmente.
+ * 0 si no se alcanzó el umbral; nunca más que `completadas - 1`.
  */
+export function effectiveDiscards(
+  discardsCount: number,
+  completedRaces: number,
+  threshold: number = DEFAULT_DISCARD_THRESHOLD
+): number {
+  if (discardsCount <= 0) return 0;
+  if (completedRaces < threshold) return 0;
+  return Math.min(discardsCount, Math.max(0, completedRaces - 1));
+}
+
+/** Puntos de un resultado individual bajo Low Point. */
 export function pointsForResult(
   result: { position: number | null; code: string | null } | undefined,
-  entriesCount: number,
-  raceCompleted: boolean
+  entriesCount: number
 ): number {
-  if (!result || result.code) {
-    // Sin resultado en manga completada = DNC; o código especial.
-    return raceCompleted || result?.code ? penaltyPoints(entriesCount) : 0;
-  }
-  if (result.position == null) return 0;
+  // Sin resultado en manga completada = DNC; o código especial.
+  if (!result || result.code) return penaltyPoints(entriesCount);
+  if (result.position == null) return penaltyPoints(entriesCount);
   return result.position;
 }
 
 export interface StandingRacePoint {
   race_id: string;
+  race_number: number;
   points: number;
   position: number | null;
   code: string | null;
@@ -66,17 +78,27 @@ export interface Standing {
   gross_total: number;
   total: number; // neto (con descartes aplicados)
   rank: number;
-  /** Conteo de posiciones (índice 0 = cantidad de 1ros, etc.) para desempate. */
+  /** Conteo de posiciones (índice 0 = cantidad de 1ros) para desempate. */
   finishes: number[];
 }
 
+export interface StandingsResult {
+  standings: Standing[];
+  /** Descartes realmente aplicados (0 si no se alcanzó el umbral). */
+  effective_discards: number;
+  completed_races: number;
+  discards_count: number;
+  discard_threshold: number;
+}
+
 /**
- * Calcula la tabla general de una regata.
+ * Calcula la tabla general de UNA clase de regata.
  *
- * @param entryIds  inscriptos considerados (confirmados).
- * @param races     mangas de la regata.
- * @param results   resultados cargados (race_id + entry_id + position/code).
- * @param discardsCount  cuántas peores mangas se descartan.
+ * @param entryIds       inscriptos confirmados de la clase.
+ * @param races          mangas de la clase.
+ * @param results        resultados cargados.
+ * @param discardsCount  descartes configurados en la clase.
+ * @param threshold      mangas completadas para activar el 1er descarte.
  */
 export function computeStandings(
   entryIds: string[],
@@ -87,10 +109,19 @@ export function computeStandings(
     position: number | null;
     code: string | null;
   }>,
-  discardsCount = 0
-): Standing[] {
+  discardsCount = 0,
+  threshold: number = DEFAULT_DISCARD_THRESHOLD
+): StandingsResult {
   const entriesCount = entryIds.length;
-  const completedRaces = races.filter((r) => r.status === 'completed');
+  const completedRaces = races
+    .filter((r) => r.status === 'completed')
+    .sort((a, b) => a.race_number - b.race_number);
+
+  const discards = effectiveDiscards(
+    discardsCount,
+    completedRaces.length,
+    threshold
+  );
 
   // Índice rápido de resultados por (race_id, entry_id).
   const byKey = new Map<string, { position: number | null; code: string | null }>();
@@ -104,23 +135,26 @@ export function computeStandings(
   const standings: Standing[] = entryIds.map((entryId) => {
     const racePoints: StandingRacePoint[] = completedRaces.map((race) => {
       const result = byKey.get(`${race.id}:${entryId}`);
-      const points = pointsForResult(result, entriesCount, true);
       return {
         race_id: race.id,
-        points,
+        race_number: race.race_number,
+        points: pointsForResult(result, entriesCount),
         position: result?.position ?? null,
         code: result?.code ?? null,
         discarded: false,
       };
     });
 
-    // Descartes: marcar las `discardsCount` mangas de mayor puntaje.
-    if (discardsCount > 0 && racePoints.length > discardsCount) {
-      const order = [...racePoints]
-        .map((rp, i) => ({ i, points: rp.points }))
-        .sort((a, b) => b.points - a.points)
-        .slice(0, discardsCount);
-      for (const { i } of order) racePoints[i].discarded = true;
+    // Descartar las peores (mayor puntaje). Ante empate de puntos,
+    // descarta la manga más tardía (criterio estable y habitual).
+    if (discards > 0) {
+      [...racePoints]
+        .map((rp, i) => ({ i, points: rp.points, n: rp.race_number }))
+        .sort((a, b) => b.points - a.points || b.n - a.n)
+        .slice(0, discards)
+        .forEach(({ i }) => {
+          racePoints[i].discarded = true;
+        });
     }
 
     const gross = racePoints.reduce((s, rp) => s + rp.points, 0);
@@ -128,7 +162,7 @@ export function computeStandings(
       .filter((rp) => !rp.discarded)
       .reduce((s, rp) => s + rp.points, 0);
 
-    // Conteo de posiciones reales (para desempate A8.1).
+    // Conteo de posiciones reales (desempate A8.1).
     const finishes: number[] = [];
     for (const rp of racePoints) {
       if (rp.position != null) {
@@ -146,10 +180,8 @@ export function computeStandings(
     };
   });
 
-  // Orden: menor total; desempates A8.
   standings.sort((a, b) => compareStandings(a, b, completedRaces));
 
-  // Asignar rank (empates comparten número).
   standings.forEach((s, i) => {
     if (i > 0 && compareStandings(standings[i - 1], s, completedRaces) === 0) {
       s.rank = standings[i - 1].rank;
@@ -158,10 +190,16 @@ export function computeStandings(
     }
   });
 
-  return standings;
+  return {
+    standings,
+    effective_discards: discards,
+    completed_races: completedRaces.length,
+    discards_count: discardsCount,
+    discard_threshold: threshold,
+  };
 }
 
-/** Compara dos filas: total, luego A8.1 (más 1ros…), luego A8.2 (última manga). */
+/** Compara dos filas: total neto, luego A8.1 (más 1ros…), luego A8.2. */
 function compareStandings(
   a: Standing,
   b: Standing,
@@ -174,10 +212,10 @@ function compareStandings(
   for (let i = 0; i < maxLen; i++) {
     const av = a.finishes[i] ?? 0;
     const bv = b.finishes[i] ?? 0;
-    if (av !== bv) return bv - av; // más de esa posición = mejor
+    if (av !== bv) return bv - av;
   }
 
-  // A8.2 — comparar el resultado de la última manga, luego la anterior…
+  // A8.2 — comparar la última manga, luego la anterior…
   const racesDesc = [...completedRaces].sort(
     (r1, r2) => r2.race_number - r1.race_number
   );

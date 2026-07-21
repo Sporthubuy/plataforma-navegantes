@@ -14,10 +14,26 @@ const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 
 const REGATTA_FIELDS =
-  'id, name, description, sailing_class, location, start_date, end_date, status, registration_opens_at, registration_closes_at, max_entries, scoring_system, discards_count, photo_url, created_by, created_at, updated_at';
+  'id, name, description, location, start_date, end_date, status, registration_opens_at, registration_closes_at, scoring_system, photo_url, created_by, created_at, updated_at';
+
+const CLASS_FIELDS =
+  'id, regatta_id, sailing_class, discards_count, max_entries, status, created_at, updated_at';
 
 const ENTRY_WITH_BOAT =
-  'id, regatta_id, boat_id, registered_by, sail_number, status, registered_at, boat:boats(id, name, sail_number, category, photo_url, owner:profiles(id, username, name, avatar_url))';
+  'id, regatta_id, regatta_class_id, boat_id, registered_by, sail_number, status, registered_at, boat:boats(id, name, sail_number, category, photo_url, owner:profiles(id, username, name, avatar_url))';
+
+const VALID_STATUS = ['upcoming', 'open', 'in_progress', 'finished', 'cancelled'];
+
+interface ClassRow {
+  id: string;
+  regatta_id: string;
+  sailing_class: string;
+  discards_count: number;
+  max_entries: number | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
 
 /** Devuelve el user id si hay un Bearer token válido; null si no. */
 function optionalUserId(req: Request): string | null {
@@ -33,21 +49,90 @@ function optionalUserId(req: Request): string | null {
   }
 }
 
-/** Cantidad de inscriptos confirmados de una regata. */
-async function confirmedCount(regattaId: string): Promise<number> {
-  const { count } = await supabaseAdmin
+/** Inscriptos confirmados por clase, para un conjunto de clases. */
+async function countsByClass(classIds: string[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (classIds.length === 0) return counts;
+  const { data } = await supabaseAdmin
     .from('regatta_entries')
-    .select('id', { count: 'exact', head: true })
-    .eq('regatta_id', regattaId)
+    .select('regatta_class_id')
+    .in('regatta_class_id', classIds)
     .eq('status', 'confirmed');
-  return count ?? 0;
+  for (const e of data ?? []) {
+    counts.set(
+      e.regatta_class_id,
+      (counts.get(e.regatta_class_id) ?? 0) + 1
+    );
+  }
+  return counts;
+}
+
+/** Calcula la tabla de clasificación de una clase. */
+async function buildClassStandings(cls: {
+  id: string;
+  sailing_class: string;
+  discards_count: number;
+  status: string;
+}) {
+  const [{ data: entries }, { data: races }] = await Promise.all([
+    supabaseAdmin
+      .from('regatta_entries')
+      .select(ENTRY_WITH_BOAT)
+      .eq('regatta_class_id', cls.id)
+      .eq('status', 'confirmed'),
+    supabaseAdmin
+      .from('races')
+      .select('id, race_number, name, status, sailed_at')
+      .eq('regatta_class_id', cls.id)
+      .order('race_number', { ascending: true }),
+  ]);
+
+  const entryList = entries ?? [];
+  const raceList = races ?? [];
+  const raceIds = raceList.map((r) => r.id);
+
+  let results: Array<{
+    race_id: string;
+    entry_id: string;
+    position: number | null;
+    code: string | null;
+  }> = [];
+  if (raceIds.length > 0) {
+    const { data: rr } = await supabaseAdmin
+      .from('race_results')
+      .select('race_id, entry_id, position, code')
+      .in('race_id', raceIds);
+    results = rr ?? [];
+  }
+
+  const computed = computeStandings(
+    entryList.map((e) => e.id),
+    raceList,
+    results,
+    cls.discards_count
+  );
+
+  const entryById = new Map(entryList.map((e) => [e.id, e]));
+  return {
+    regatta_class: cls,
+    races: raceList,
+    entry_count: entryList.length,
+    effective_discards: computed.effective_discards,
+    completed_races: computed.completed_races,
+    discards_count: computed.discards_count,
+    discard_threshold: computed.discard_threshold,
+    standings: computed.standings.map((s) => ({
+      ...s,
+      entry: entryById.get(s.entry_id) ?? null,
+    })),
+  };
 }
 
 // ============================================================
 // LECTURA (pública)
 // ============================================================
 
-/** GET /api/regattas — lista paginada con filtros y contador de inscriptos. */
+/** GET /api/regattas — campeonatos con sus clases y contadores. */
 router.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -60,17 +145,17 @@ router.get(
     const offset =
       Number.isFinite(rawOffset) && rawOffset > 0 ? Math.floor(rawOffset) : 0;
 
+    const status = typeof req.query.status === 'string' ? req.query.status : '';
+    const sailingClass =
+      typeof req.query.sailing_class === 'string' ? req.query.sailing_class : '';
+    const search =
+      typeof req.query.search === 'string' ? req.query.search.trim() : '';
+
     let query = supabaseAdmin
       .from('regattas')
       .select(REGATTA_FIELDS, { count: 'exact' });
 
-    const status = typeof req.query.status === 'string' ? req.query.status : '';
-    const sailingClass =
-      typeof req.query.sailing_class === 'string' ? req.query.sailing_class : '';
-    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
-
     if (status) query = query.eq('status', status);
-    if (sailingClass) query = query.eq('sailing_class', sailingClass);
     if (search) {
       const escaped = search.replace(/[\\%_]/g, (m) => `\\${m}`);
       query = query.ilike('name', `%${escaped}%`);
@@ -79,27 +164,38 @@ router.get(
     const { data, error, count } = await query
       .order('start_date', { ascending: false })
       .range(offset, offset + limit - 1);
-
     if (error) throw error;
 
-    // Contador de inscriptos confirmados por regata.
-    const ids = (data ?? []).map((r) => r.id);
-    const counts = new Map<string, number>();
-    if (ids.length > 0) {
-      const { data: entries } = await supabaseAdmin
-        .from('regatta_entries')
-        .select('regatta_id')
-        .in('regatta_id', ids)
-        .eq('status', 'confirmed');
-      for (const e of entries ?? []) {
-        counts.set(e.regatta_id, (counts.get(e.regatta_id) ?? 0) + 1);
-      }
+    const regattaIds = (data ?? []).map((r) => r.id);
+    let classes: ClassRow[] = [];
+    if (regattaIds.length > 0) {
+      const { data: cls } = await supabaseAdmin
+        .from('regatta_classes')
+        .select(CLASS_FIELDS)
+        .in('regatta_id', regattaIds)
+        .order('sailing_class', { ascending: true });
+      classes = (cls ?? []) as unknown as ClassRow[];
     }
 
-    const regattas = (data ?? []).map((r) => ({
-      ...r,
-      entry_count: counts.get(r.id) ?? 0,
-    }));
+    const counts = await countsByClass(classes.map((c) => c.id));
+
+    let regattas = (data ?? []).map((r) => {
+      const own = classes
+        .filter((c) => c.regatta_id === r.id)
+        .map((c) => ({ ...c, entry_count: counts.get(c.id) ?? 0 }));
+      return {
+        ...r,
+        classes: own,
+        entry_count: own.reduce((s, c) => s + c.entry_count, 0),
+      };
+    });
+
+    // Filtro por clase: el campeonato debe tener esa clase.
+    if (sailingClass) {
+      regattas = regattas.filter((r) =>
+        r.classes.some((c) => c.sailing_class === sailingClass)
+      );
+    }
 
     return res.json({
       regattas,
@@ -108,7 +204,7 @@ router.get(
   })
 );
 
-/** GET /api/regattas/:id — detalle con mangas, inscriptos y barcos elegibles. */
+/** GET /api/regattas/:id — detalle del campeonato con sus clases. */
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {
@@ -123,20 +219,36 @@ router.get(
       return res.status(404).json({ error: 'Regata no encontrada' });
     }
 
-    const [races, entryCount] = await Promise.all([
-      supabaseAdmin
-        .from('races')
-        .select('id, race_number, name, status, sailed_at')
-        .eq('regatta_id', regatta.id)
-        .order('race_number', { ascending: true }),
-      confirmedCount(regatta.id),
-    ]);
+    const { data: classes } = await supabaseAdmin
+      .from('regatta_classes')
+      .select(CLASS_FIELDS)
+      .eq('regatta_id', regatta.id)
+      .order('sailing_class', { ascending: true });
 
-    // Barcos elegibles del usuario autenticado (clase coincide y no inscripto).
-    let eligibleBoats: unknown[] = [];
-    let myEntry: unknown = null;
+    const classList = classes ?? [];
+    const classIds = classList.map((c) => c.id);
+    const counts = await countsByClass(classIds);
+
+    // Mangas por clase.
+    const racesByClass = new Map<string, unknown[]>();
+    if (classIds.length > 0) {
+      const { data: races } = await supabaseAdmin
+        .from('races')
+        .select('id, regatta_class_id, race_number, name, status, sailed_at')
+        .in('regatta_class_id', classIds)
+        .order('race_number', { ascending: true });
+      for (const r of races ?? []) {
+        const list = racesByClass.get(r.regatta_class_id) ?? [];
+        list.push(r);
+        racesByClass.set(r.regatta_class_id, list);
+      }
+    }
+
+    // Barcos del usuario + inscripciones propias, por clase.
     const userId = optionalUserId(req);
-    if (userId) {
+    let myBoats: Array<{ id: string; category: string }> = [];
+    let myEntries: Array<{ id: string; regatta_class_id: string; boat_id: string }> = [];
+    if (userId && classIds.length > 0) {
       const [{ data: boats }, { data: entries }] = await Promise.all([
         supabaseAdmin
           .from('boats')
@@ -144,49 +256,62 @@ router.get(
           .eq('owner_id', userId),
         supabaseAdmin
           .from('regatta_entries')
-          .select('id, boat_id, status')
-          .eq('regatta_id', regatta.id),
+          .select('id, regatta_class_id, boat_id, status')
+          .in('regatta_class_id', classIds)
+          .eq('status', 'confirmed'),
       ]);
-      const registeredBoatIds = new Set(
-        (entries ?? [])
-          .filter((e) => e.status === 'confirmed')
-          .map((e) => e.boat_id)
-      );
-      eligibleBoats = (boats ?? []).map((b) => ({
-        ...b,
-        eligible:
-          b.category === regatta.sailing_class && !registeredBoatIds.has(b.id),
-        class_matches: b.category === regatta.sailing_class,
-        already_registered: registeredBoatIds.has(b.id),
-      }));
-      // ¿El usuario ya tiene una entry confirmada (con alguno de sus barcos)?
-      const myBoatIds = new Set((boats ?? []).map((b) => b.id));
-      myEntry =
-        (entries ?? []).find(
-          (e) => e.status === 'confirmed' && myBoatIds.has(e.boat_id)
-        ) ?? null;
+      myBoats = (boats ?? []) as Array<{ id: string; category: string }>;
+      const myBoatIds = new Set(myBoats.map((b) => b.id));
+      myEntries = (entries ?? []).filter((e) => myBoatIds.has(e.boat_id));
     }
+
+    const enrichedClasses = classList.map((c) => {
+      const registeredBoatIds = new Set(
+        myEntries.filter((e) => e.regatta_class_id === c.id).map((e) => e.boat_id)
+      );
+      const myEntry =
+        myEntries.find((e) => e.regatta_class_id === c.id) ?? null;
+      return {
+        ...c,
+        entry_count: counts.get(c.id) ?? 0,
+        races: racesByClass.get(c.id) ?? [],
+        // Barcos del usuario evaluados contra ESTA clase.
+        eligible_boats: myBoats.map((b) => ({
+          ...b,
+          class_matches: b.category === c.sailing_class,
+          already_registered: registeredBoatIds.has(b.id),
+          eligible:
+            b.category === c.sailing_class && !registeredBoatIds.has(b.id),
+        })),
+        my_entry: myEntry,
+      };
+    });
 
     return res.json({
       regatta: {
         ...regatta,
-        entry_count: entryCount,
-        races: races.data ?? [],
+        classes: enrichedClasses,
+        entry_count: enrichedClasses.reduce((s, c) => s + c.entry_count, 0),
       },
-      eligible_boats: eligibleBoats,
-      my_entry: myEntry,
     });
   })
 );
 
-/** GET /api/regattas/:id/entries — inscriptos con barco y owner. */
+/** GET /api/regattas/:id/entries — todas las inscripciones del campeonato. */
 router.get(
   '/:id/entries',
   asyncHandler(async (req, res) => {
+    const { data: classes } = await supabaseAdmin
+      .from('regatta_classes')
+      .select('id')
+      .eq('regatta_id', req.params.id);
+    const classIds = (classes ?? []).map((c) => c.id);
+    if (classIds.length === 0) return res.json({ entries: [] });
+
     const { data, error } = await supabaseAdmin
       .from('regatta_entries')
       .select(ENTRY_WITH_BOAT)
-      .eq('regatta_id', req.params.id)
+      .in('regatta_class_id', classIds)
       .order('registered_at', { ascending: true });
 
     if (error) throw error;
@@ -194,75 +319,66 @@ router.get(
   })
 );
 
-/** GET /api/regattas/:id/results — tabla de clasificación general. */
+/** GET /api/regattas/classes/:classId/entries — inscriptos de una clase. */
+router.get(
+  '/classes/:classId/entries',
+  asyncHandler(async (req, res) => {
+    const { data, error } = await supabaseAdmin
+      .from('regatta_entries')
+      .select(ENTRY_WITH_BOAT)
+      .eq('regatta_class_id', req.params.classId)
+      .order('registered_at', { ascending: true });
+
+    if (error) throw error;
+    return res.json({ entries: data ?? [] });
+  })
+);
+
+/** GET /api/regattas/:id/results — resultados AGRUPADOS POR CLASE. */
 router.get(
   '/:id/results',
   asyncHandler(async (req, res) => {
     const { data: regatta } = await supabaseAdmin
       .from('regattas')
-      .select('id, discards_count')
+      .select('id')
       .eq('id', req.params.id)
       .maybeSingle();
     if (!regatta) {
       return res.status(404).json({ error: 'Regata no encontrada' });
     }
 
-    const [{ data: entries }, { data: races }] = await Promise.all([
-      supabaseAdmin
-        .from('regatta_entries')
-        .select(ENTRY_WITH_BOAT)
-        .eq('regatta_id', regatta.id)
-        .eq('status', 'confirmed'),
-      supabaseAdmin
-        .from('races')
-        .select('id, race_number, status')
-        .eq('regatta_id', regatta.id)
-        .order('race_number', { ascending: true }),
-    ]);
+    const { data: classes } = await supabaseAdmin
+      .from('regatta_classes')
+      .select(CLASS_FIELDS)
+      .eq('regatta_id', regatta.id)
+      .order('sailing_class', { ascending: true });
 
-    const entryList = entries ?? [];
-    const raceList = races ?? [];
-    const entryIds = entryList.map((e) => e.id);
-
-    // Resultados de todas las mangas de la regata.
-    const raceIds = raceList.map((r) => r.id);
-    let results: Array<{
-      race_id: string;
-      entry_id: string;
-      position: number | null;
-      code: string | null;
-    }> = [];
-    if (raceIds.length > 0) {
-      const { data: rr } = await supabaseAdmin
-        .from('race_results')
-        .select('race_id, entry_id, position, code')
-        .in('race_id', raceIds);
-      results = rr ?? [];
-    }
-
-    const standings = computeStandings(
-      entryIds,
-      raceList,
-      results,
-      regatta.discards_count
+    const blocks = await Promise.all(
+      (classes ?? []).map((c) => buildClassStandings(c))
     );
 
-    // Adjuntar datos de barco/owner para mostrar.
-    const entryById = new Map(entryList.map((e) => [e.id, e]));
-    const table = standings.map((s) => ({
-      ...s,
-      entry: entryById.get(s.entry_id) ?? null,
-    }));
+    return res.json({ classes: blocks });
+  })
+);
 
-    return res.json({
-      races: raceList,
-      standings: table,
-    });
+/** GET /api/regattas/classes/:classId/results — tabla de una sola clase. */
+router.get(
+  '/classes/:classId/results',
+  asyncHandler(async (req, res) => {
+    const { data: cls } = await supabaseAdmin
+      .from('regatta_classes')
+      .select(CLASS_FIELDS)
+      .eq('id', req.params.classId)
+      .maybeSingle();
+    if (!cls) {
+      return res.status(404).json({ error: 'Clase no encontrada' });
+    }
+    return res.json(await buildClassStandings(cls));
   })
 );
 
 // ============================================================
-// ADMIN — gestión de regata
+// ADMIN — campeonato
 // ============================================================
 
 function validateDates(start: unknown, end: unknown): string | null {
@@ -275,7 +391,7 @@ function validateDates(start: unknown, end: unknown): string | null {
   return null;
 }
 
-/** POST /api/regattas — crea una regata (regattas.create). */
+/** POST /api/regattas — crea el campeonato (sin clase ni descartes). */
 router.post(
   '/',
   requireAuth,
@@ -284,22 +400,16 @@ router.post(
     const {
       name,
       description,
-      sailing_class,
       location,
       start_date,
       end_date,
       registration_opens_at,
       registration_closes_at,
-      max_entries,
-      discards_count,
       photo_url,
     } = req.body ?? {};
 
     if (!isNonEmptyString(name)) {
       return res.status(400).json({ error: 'El nombre es obligatorio' });
-    }
-    if (!isNonEmptyString(sailing_class)) {
-      return res.status(400).json({ error: 'La clase es obligatoria' });
     }
     const dateError = validateDates(start_date, end_date);
     if (dateError) return res.status(422).json({ error: dateError });
@@ -309,20 +419,11 @@ router.post(
       .insert({
         name: name.trim(),
         description: isNonEmptyString(description) ? description.trim() : null,
-        sailing_class: sailing_class.trim(),
         location: isNonEmptyString(location) ? location.trim() : null,
         start_date,
         end_date,
         registration_opens_at: registration_opens_at || null,
         registration_closes_at: registration_closes_at || null,
-        max_entries:
-          Number.isFinite(Number(max_entries)) && Number(max_entries) > 0
-            ? Math.floor(Number(max_entries))
-            : null,
-        discards_count:
-          Number.isFinite(Number(discards_count)) && Number(discards_count) >= 0
-            ? Math.floor(Number(discards_count))
-            : 0,
         photo_url: isNonEmptyString(photo_url) ? photo_url : null,
         created_by: req.user!.id,
       })
@@ -334,7 +435,7 @@ router.post(
   })
 );
 
-/** PUT /api/regattas/:id — edita datos (regattas.edit). */
+/** PUT /api/regattas/:id — edita los datos del campeonato. */
 router.put(
   '/:id',
   requireAuth,
@@ -342,7 +443,7 @@ router.put(
   asyncHandler(async (req, res) => {
     const { data: regatta } = await supabaseAdmin
       .from('regattas')
-      .select('id, sailing_class')
+      .select('id')
       .eq('id', req.params.id)
       .maybeSingle();
     if (!regatta) {
@@ -358,21 +459,10 @@ router.put(
       }
       updates.name = body.name.trim();
     }
-    if (body.sailing_class !== undefined && body.sailing_class !== regatta.sailing_class) {
-      // No permitir cambiar la clase si ya hay inscriptos.
-      const count = await confirmedCount(regatta.id);
-      if (count > 0) {
-        return res.status(422).json({
-          error: 'No puedes cambiar la clase: ya hay barcos inscriptos',
-        });
-      }
-      if (!isNonEmptyString(body.sailing_class)) {
-        return res.status(400).json({ error: 'La clase no puede estar vacía' });
-      }
-      updates.sailing_class = body.sailing_class.trim();
-    }
     if (body.description !== undefined)
-      updates.description = isNonEmptyString(body.description) ? body.description.trim() : null;
+      updates.description = isNonEmptyString(body.description)
+        ? body.description.trim()
+        : null;
     if (body.location !== undefined)
       updates.location = isNonEmptyString(body.location) ? body.location.trim() : null;
     if (body.start_date !== undefined) updates.start_date = body.start_date;
@@ -381,18 +471,14 @@ router.put(
       updates.registration_opens_at = body.registration_opens_at || null;
     if (body.registration_closes_at !== undefined)
       updates.registration_closes_at = body.registration_closes_at || null;
-    if (body.max_entries !== undefined)
-      updates.max_entries =
-        Number.isFinite(Number(body.max_entries)) && Number(body.max_entries) > 0
-          ? Math.floor(Number(body.max_entries))
-          : null;
-    if (body.discards_count !== undefined)
-      updates.discards_count =
-        Number.isFinite(Number(body.discards_count)) && Number(body.discards_count) >= 0
-          ? Math.floor(Number(body.discards_count))
-          : 0;
     if (body.photo_url !== undefined)
       updates.photo_url = isNonEmptyString(body.photo_url) ? body.photo_url : null;
+    if (body.status !== undefined) {
+      if (!VALID_STATUS.includes(body.status)) {
+        return res.status(400).json({ error: 'Estado inválido' });
+      }
+      updates.status = body.status;
+    }
 
     if (updates.start_date || updates.end_date) {
       const dateError = validateDates(
@@ -418,7 +504,7 @@ router.put(
   })
 );
 
-/** DELETE /api/regattas/:id — elimina (regattas.delete). */
+/** DELETE /api/regattas/:id */
 router.delete(
   '/:id',
   requireAuth,
@@ -441,66 +527,40 @@ router.delete(
   })
 );
 
-// Transiciones de estado permitidas.
-const STATUS_TRANSITIONS: Record<string, string[]> = {
-  upcoming: ['open', 'cancelled'],
-  open: ['in_progress', 'cancelled'],
-  in_progress: ['finished', 'cancelled'],
-  finished: [],
-  cancelled: [],
-};
-
-/** PUT /api/regattas/:id/status — cambia el estado (regattas.edit). */
+/** PUT /api/regattas/:id/status — estado paraguas del campeonato. */
 router.put(
   '/:id/status',
   requireAuth,
   requirePermission('regattas.edit'),
   asyncHandler(async (req, res) => {
     const { status } = req.body ?? {};
-    const valid = ['upcoming', 'open', 'in_progress', 'finished', 'cancelled'];
-    if (!valid.includes(status)) {
+    if (!VALID_STATUS.includes(status)) {
       return res.status(400).json({ error: 'Estado inválido' });
     }
-
-    const { data: regatta } = await supabaseAdmin
-      .from('regattas')
-      .select('id, status')
-      .eq('id', req.params.id)
-      .maybeSingle();
-    if (!regatta) {
-      return res.status(404).json({ error: 'Regata no encontrada' });
-    }
-
-    if (status !== regatta.status) {
-      const allowed = STATUS_TRANSITIONS[regatta.status] ?? [];
-      if (!allowed.includes(status)) {
-        return res.status(422).json({
-          error: `No se puede pasar de "${regatta.status}" a "${status}"`,
-        });
-      }
-    }
-
     const { data, error } = await supabaseAdmin
       .from('regattas')
       .update({ status })
-      .eq('id', regatta.id)
+      .eq('id', req.params.id)
       .select(REGATTA_FIELDS)
-      .single();
+      .maybeSingle();
     if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Regata no encontrada' });
     return res.json({ regatta: data });
   })
 );
 
 // ============================================================
-// ADMIN — mangas y resultados (regattas.manage_results)
+// ADMIN — clases del campeonato
 // ============================================================
 
-/** POST /api/regattas/:id/races — crea una manga. */
+/** POST /api/regattas/:id/classes — agrega una clase al campeonato. */
 router.post(
-  '/:id/races',
+  '/:id/classes',
   requireAuth,
-  requirePermission('regattas.manage_results'),
+  requirePermission('regattas.edit'),
   asyncHandler(async (req, res) => {
+    const { sailing_class, discards_count, max_entries, status } = req.body ?? {};
+
     const { data: regatta } = await supabaseAdmin
       .from('regattas')
       .select('id')
@@ -509,14 +569,180 @@ router.post(
     if (!regatta) {
       return res.status(404).json({ error: 'Regata no encontrada' });
     }
+    if (!isNonEmptyString(sailing_class)) {
+      return res.status(400).json({ error: 'La clase es obligatoria' });
+    }
+    if (status !== undefined && !VALID_STATUS.includes(status)) {
+      return res.status(400).json({ error: 'Estado inválido' });
+    }
 
-    // race_number: el indicado o el siguiente disponible.
+    const { data, error } = await supabaseAdmin
+      .from('regatta_classes')
+      .insert({
+        regatta_id: regatta.id,
+        sailing_class: sailing_class.trim(),
+        discards_count:
+          Number.isFinite(Number(discards_count)) && Number(discards_count) >= 0
+            ? Math.floor(Number(discards_count))
+            : 0,
+        max_entries:
+          Number.isFinite(Number(max_entries)) && Number(max_entries) > 0
+            ? Math.floor(Number(max_entries))
+            : null,
+        ...(status ? { status } : {}),
+      })
+      .select(CLASS_FIELDS)
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        return res
+          .status(422)
+          .json({ error: 'Esa clase ya existe en este campeonato' });
+      }
+      throw error;
+    }
+    return res.status(201).json({ regatta_class: data });
+  })
+);
+
+/** PUT /api/regattas/classes/:classId — edita la clase. */
+router.put(
+  '/classes/:classId',
+  requireAuth,
+  requirePermission('regattas.edit'),
+  asyncHandler(async (req, res) => {
+    const { data: cls } = await supabaseAdmin
+      .from('regatta_classes')
+      .select('id, sailing_class')
+      .eq('id', req.params.classId)
+      .maybeSingle();
+    if (!cls) {
+      return res.status(404).json({ error: 'Clase no encontrada' });
+    }
+
+    const body = req.body ?? {};
+    const updates: Record<string, unknown> = {};
+
+    if (
+      body.sailing_class !== undefined &&
+      body.sailing_class !== cls.sailing_class
+    ) {
+      const counts = await countsByClass([cls.id]);
+      if ((counts.get(cls.id) ?? 0) > 0) {
+        return res.status(422).json({
+          error: 'No puedes cambiar la clase: ya hay barcos inscriptos',
+        });
+      }
+      if (!isNonEmptyString(body.sailing_class)) {
+        return res.status(400).json({ error: 'La clase no puede estar vacía' });
+      }
+      updates.sailing_class = body.sailing_class.trim();
+    }
+    if (body.discards_count !== undefined)
+      updates.discards_count =
+        Number.isFinite(Number(body.discards_count)) &&
+        Number(body.discards_count) >= 0
+          ? Math.floor(Number(body.discards_count))
+          : 0;
+    if (body.max_entries !== undefined)
+      updates.max_entries =
+        Number.isFinite(Number(body.max_entries)) && Number(body.max_entries) > 0
+          ? Math.floor(Number(body.max_entries))
+          : null;
+    if (body.status !== undefined) {
+      if (!VALID_STATUS.includes(body.status)) {
+        return res.status(400).json({ error: 'Estado inválido' });
+      }
+      updates.status = body.status;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No hay campos para actualizar' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('regatta_classes')
+      .update(updates)
+      .eq('id', cls.id)
+      .select(CLASS_FIELDS)
+      .single();
+    if (error) throw error;
+    return res.json({ regatta_class: data });
+  })
+);
+
+/** PUT /api/regattas/classes/:classId/status — estado de la clase. */
+router.put(
+  '/classes/:classId/status',
+  requireAuth,
+  requirePermission('regattas.edit'),
+  asyncHandler(async (req, res) => {
+    const { status } = req.body ?? {};
+    if (!VALID_STATUS.includes(status)) {
+      return res.status(400).json({ error: 'Estado inválido' });
+    }
+    const { data, error } = await supabaseAdmin
+      .from('regatta_classes')
+      .update({ status })
+      .eq('id', req.params.classId)
+      .select(CLASS_FIELDS)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Clase no encontrada' });
+    return res.json({ regatta_class: data });
+  })
+);
+
+/** DELETE /api/regattas/classes/:classId — borra la clase (cascada). */
+router.delete(
+  '/classes/:classId',
+  requireAuth,
+  requirePermission('regattas.delete'),
+  asyncHandler(async (req, res) => {
+    const { data: cls } = await supabaseAdmin
+      .from('regatta_classes')
+      .select('id')
+      .eq('id', req.params.classId)
+      .maybeSingle();
+    if (!cls) {
+      return res.status(404).json({ error: 'Clase no encontrada' });
+    }
+    const { error } = await supabaseAdmin
+      .from('regatta_classes')
+      .delete()
+      .eq('id', cls.id);
+    if (error) throw error;
+    return res.status(204).send();
+  })
+);
+
+// ============================================================
+// ADMIN — mangas y resultados (por clase)
+// ============================================================
+
+/** POST /api/regattas/classes/:classId/races — crea manga en la clase. */
+router.post(
+  '/classes/:classId/races',
+  requireAuth,
+  requirePermission('regattas.manage_results'),
+  asyncHandler(async (req, res) => {
+    const { data: cls } = await supabaseAdmin
+      .from('regatta_classes')
+      .select('id, regatta_id')
+      .eq('id', req.params.classId)
+      .maybeSingle();
+    if (!cls) {
+      return res.status(404).json({ error: 'Clase no encontrada' });
+    }
+
+    // Numeración correlativa DENTRO de la clase.
     let raceNumber = Number(req.body?.race_number);
     if (!Number.isFinite(raceNumber) || raceNumber <= 0) {
       const { data: last } = await supabaseAdmin
         .from('races')
         .select('race_number')
-        .eq('regatta_id', regatta.id)
+        .eq('regatta_class_id', cls.id)
         .order('race_number', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -526,16 +752,19 @@ router.post(
     const { data, error } = await supabaseAdmin
       .from('races')
       .insert({
-        regatta_id: regatta.id,
+        regatta_id: cls.regatta_id,
+        regatta_class_id: cls.id,
         race_number: Math.floor(raceNumber),
         name: isNonEmptyString(req.body?.name) ? req.body.name.trim() : null,
       })
-      .select('id, race_number, name, status, sailed_at')
+      .select('id, regatta_class_id, race_number, name, status, sailed_at')
       .single();
 
     if (error) {
       if (error.code === '23505') {
-        return res.status(409).json({ error: 'Ya existe una manga con ese número' });
+        return res
+          .status(409)
+          .json({ error: 'Ya existe una manga con ese número en esta clase' });
       }
       throw error;
     }
@@ -551,7 +780,7 @@ router.delete(
   asyncHandler(async (req, res) => {
     const { data: race } = await supabaseAdmin
       .from('races')
-      .select('id')
+      .select('id, regatta_class_id')
       .eq('id', req.params.raceId)
       .maybeSingle();
     if (!race) {
@@ -564,9 +793,8 @@ router.delete(
 );
 
 /**
- * PUT /api/regattas/races/:raceId/results — carga resultados en lote.
- * Body: { results: [{ entry_id, position, code? }] }. Calcula puntos
- * (Low Point) y marca la manga como completed.
+ * PUT /api/regattas/races/:raceId/results — resultados en lote.
+ * Valida que los entries pertenezcan a la CLASE de esa manga.
  */
 router.put(
   '/races/:raceId/results',
@@ -575,7 +803,7 @@ router.put(
   asyncHandler(async (req, res) => {
     const { data: race } = await supabaseAdmin
       .from('races')
-      .select('id, regatta_id')
+      .select('id, regatta_class_id')
       .eq('id', req.params.raceId)
       .maybeSingle();
     if (!race) {
@@ -587,11 +815,10 @@ router.put(
       return res.status(400).json({ error: 'Se espera un array de resultados' });
     }
 
-    // Inscriptos confirmados de la regata (para validar y para el puntaje).
     const { data: entries } = await supabaseAdmin
       .from('regatta_entries')
       .select('id')
-      .eq('regatta_id', race.regatta_id)
+      .eq('regatta_class_id', race.regatta_class_id)
       .eq('status', 'confirmed');
     const validIds = new Set((entries ?? []).map((e) => e.id));
     const entriesCount = validIds.size;
@@ -609,7 +836,7 @@ router.put(
       const entryId = item?.entry_id;
       if (!validIds.has(entryId)) {
         return res.status(422).json({
-          error: 'Un resultado no corresponde a un inscripto de esta regata',
+          error: 'Un resultado no corresponde a un inscripto de esta clase',
         });
       }
       const code = isNonEmptyString(item?.code) ? item.code : null;
@@ -617,7 +844,6 @@ router.put(
       let points: number;
 
       if (code) {
-        // Código especial: puntaje de penalización, sin posición.
         points = penaltyPoints(entriesCount);
       } else {
         position = Number(item?.position);
@@ -628,30 +854,22 @@ router.put(
         }
         position = Math.floor(position);
         if (seenPositions.has(position)) {
-          return res.status(422).json({
-            error: `La posición ${position} está repetida`,
-          });
+          return res
+            .status(422)
+            .json({ error: `La posición ${position} está repetida` });
         }
         seenPositions.add(position);
         points = position;
       }
 
-      rows.push({
-        race_id: race.id,
-        entry_id: entryId,
-        position,
-        points,
-        code,
-      });
+      rows.push({ race_id: race.id, entry_id: entryId, position, points, code });
     }
 
-    // Upsert de resultados (unique race_id, entry_id).
     const { error: upsertError } = await supabaseAdmin
       .from('race_results')
       .upsert(rows, { onConflict: 'race_id,entry_id' });
     if (upsertError) throw upsertError;
 
-    // Marcar la manga como completada.
     const { error: raceError } = await supabaseAdmin
       .from('races')
       .update({ status: 'completed', sailed_at: new Date().toISOString() })
@@ -663,12 +881,12 @@ router.put(
 );
 
 // ============================================================
-// INSCRIPCIÓN (usuarios)
+// INSCRIPCIÓN (a una clase)
 // ============================================================
 
-/** POST /api/regattas/:id/register — inscribe un barco del usuario. */
+/** POST /api/regattas/classes/:classId/register */
 router.post(
-  '/:id/register',
+  '/classes/:classId/register',
   requireAuth,
   asyncHandler(async (req, res) => {
     const { boat_id, sail_number } = req.body ?? {};
@@ -676,40 +894,42 @@ router.post(
       return res.status(400).json({ error: 'Falta el barco (boat_id)' });
     }
 
-    const { data: regatta } = await supabaseAdmin
-      .from('regattas')
-      .select(
-        'id, sailing_class, status, max_entries, registration_opens_at, registration_closes_at'
-      )
-      .eq('id', req.params.id)
+    // 1. La clase existe y está abierta.
+    const { data: cls } = await supabaseAdmin
+      .from('regatta_classes')
+      .select('id, regatta_id, sailing_class, status, max_entries')
+      .eq('id', req.params.classId)
       .maybeSingle();
-    if (!regatta) {
-      return res.status(404).json({ error: 'Regata no encontrada' });
+    if (!cls) {
+      return res.status(404).json({ error: 'Clase no encontrada' });
     }
-
-    // 1. El estado permite inscripción.
-    if (regatta.status !== 'open') {
+    if (cls.status !== 'open') {
       return res
         .status(422)
-        .json({ error: 'Las inscripciones no están abiertas' });
+        .json({ error: 'Las inscripciones de esta clase no están abiertas' });
     }
 
-    // 2. Ventana de inscripción vigente.
+    // 2. Ventana de inscripción (a nivel campeonato).
+    const { data: regatta } = await supabaseAdmin
+      .from('regattas')
+      .select('registration_opens_at, registration_closes_at')
+      .eq('id', cls.regatta_id)
+      .maybeSingle();
     const now = Date.now();
     if (
-      regatta.registration_opens_at &&
+      regatta?.registration_opens_at &&
       now < new Date(regatta.registration_opens_at).getTime()
     ) {
       return res.status(422).json({ error: 'La inscripción todavía no abrió' });
     }
     if (
-      regatta.registration_closes_at &&
+      regatta?.registration_closes_at &&
       now > new Date(regatta.registration_closes_at).getTime()
     ) {
       return res.status(422).json({ error: 'La inscripción ya cerró' });
     }
 
-    // 3. El barco pertenece al usuario.
+    // 3. El barco es del usuario.
     const { data: boat } = await supabaseAdmin
       .from('boats')
       .select('id, category, sail_number, owner_id')
@@ -724,29 +944,31 @@ router.post(
         .json({ error: 'Solo el dueño del barco puede inscribirlo' });
     }
 
-    // 4. La clase coincide.
-    if (boat.category !== regatta.sailing_class) {
+    // 4. La clase del barco coincide con la de la flota.
+    if (boat.category !== cls.sailing_class) {
       return res.status(422).json({
-        error: `Tu barco es clase ${boat.category}, esta regata es para clase ${regatta.sailing_class}`,
+        error: `Tu barco es clase ${boat.category}, esta flota es de clase ${cls.sailing_class}`,
       });
     }
 
-    // 5. No inscripto ya (confirmado).
+    // 5. No inscripto ya en esta clase.
     const { data: existing } = await supabaseAdmin
       .from('regatta_entries')
       .select('id, status')
-      .eq('regatta_id', regatta.id)
+      .eq('regatta_class_id', cls.id)
       .eq('boat_id', boat.id)
       .maybeSingle();
     if (existing && existing.status === 'confirmed') {
-      return res.status(409).json({ error: 'Ese barco ya está inscripto' });
+      return res
+        .status(409)
+        .json({ error: 'Ese barco ya está inscripto en esta clase' });
     }
 
-    // 6. Hay cupo.
-    if (regatta.max_entries != null) {
-      const count = await confirmedCount(regatta.id);
-      if (count >= regatta.max_entries) {
-        return res.status(422).json({ error: 'La regata alcanzó su cupo' });
+    // 6. Cupo de la clase.
+    if (cls.max_entries != null) {
+      const counts = await countsByClass([cls.id]);
+      if ((counts.get(cls.id) ?? 0) >= cls.max_entries) {
+        return res.status(422).json({ error: 'Esta clase alcanzó su cupo' });
       }
     }
 
@@ -754,7 +976,6 @@ router.post(
       ? sail_number.trim()
       : boat.sail_number;
 
-    // Si existía una entry retirada, reactivarla; si no, crear.
     let entry;
     if (existing) {
       const { data, error } = await supabaseAdmin
@@ -774,7 +995,8 @@ router.post(
       const { data, error } = await supabaseAdmin
         .from('regatta_entries')
         .insert({
-          regatta_id: regatta.id,
+          regatta_id: cls.regatta_id,
+          regatta_class_id: cls.id,
           boat_id: boat.id,
           registered_by: req.user!.id,
           sail_number: finalSail,
@@ -789,22 +1011,22 @@ router.post(
   })
 );
 
-/** DELETE /api/regattas/:id/register — retira la inscripción del usuario. */
+/** DELETE /api/regattas/classes/:classId/register — retira la inscripción. */
 router.delete(
-  '/:id/register',
+  '/classes/:classId/register',
   requireAuth,
   asyncHandler(async (req, res) => {
-    // Busca una entry confirmada del usuario (que inscribió o es owner).
     const { data: entries } = await supabaseAdmin
       .from('regatta_entries')
       .select('id, registered_by, boat:boats(owner_id)')
-      .eq('regatta_id', req.params.id)
+      .eq('regatta_class_id', req.params.classId)
       .eq('status', 'confirmed');
 
     const mine = (entries ?? []).find(
       (e) =>
         e.registered_by === req.user!.id ||
-        (e.boat as { owner_id?: string } | null)?.owner_id === req.user!.id
+        (e.boat as unknown as { owner_id?: string } | null)?.owner_id ===
+          req.user!.id
     );
     if (!mine) {
       return res.status(404).json({ error: 'No tienes una inscripción activa' });

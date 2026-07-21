@@ -157,8 +157,8 @@ router.get(
 
 /**
  * GET /api/users/:id/regatta-history — público.
- * Historial de regatas del usuario (barcos propios inscriptos), con
- * posición final si la regata está terminada. Más reciente primero.
+ * Historial del navegante: campeonato + CLASE en la que corrió, con su
+ * posición final en esa clase si ya terminó. Más reciente primero.
  */
 router.get(
   '/:id/regatta-history',
@@ -178,38 +178,56 @@ router.get(
     const { data: entries } = await supabaseAdmin
       .from('regatta_entries')
       .select(
-        'id, boat_id, regatta:regattas(id, name, sailing_class, location, start_date, status, discards_count)'
+        'id, boat_id, regatta_class_id, regatta_class:regatta_classes(id, sailing_class, discards_count, status, regatta:regattas(id, name, location, start_date))'
       )
       .in('boat_id', boatIds)
       .eq('status', 'confirmed');
 
-    // Posiciones finales para regatas terminadas (una pasada por regata).
-    const finishedIds = [
-      ...new Set(
-        (entries ?? [])
-          .map((e) => e.regatta as unknown as { id: string; status: string } | null)
-          .filter((r): r is { id: string; status: string } => r?.status === 'finished')
-          .map((r) => r.id)
-      ),
-    ];
+    type ClassRow = {
+      id: string;
+      sailing_class: string;
+      discards_count: number;
+      status: string;
+      regatta: {
+        id: string;
+        name: string;
+        location: string | null;
+        start_date: string;
+      } | null;
+    };
 
-    const rankByEntry = new Map<string, { position: number; total_entries: number; points: number }>();
+    // Posiciones finales: una pasada por CLASE terminada.
+    const finishedClasses = new Map<string, ClassRow>();
+    for (const e of entries ?? []) {
+      const cls = e.regatta_class as unknown as ClassRow | null;
+      if (cls?.status === 'finished') finishedClasses.set(cls.id, cls);
+    }
+
+    const rankByEntry = new Map<
+      string,
+      { position: number; total_entries: number; points: number }
+    >();
     await Promise.all(
-      finishedIds.map(async (regattaId) => {
-        const [{ data: regEntries }, { data: races }] = await Promise.all([
+      [...finishedClasses.values()].map(async (cls) => {
+        const [{ data: clsEntries }, { data: races }] = await Promise.all([
           supabaseAdmin
             .from('regatta_entries')
             .select('id')
-            .eq('regatta_id', regattaId)
+            .eq('regatta_class_id', cls.id)
             .eq('status', 'confirmed'),
           supabaseAdmin
             .from('races')
             .select('id, race_number, status')
-            .eq('regatta_id', regattaId),
+            .eq('regatta_class_id', cls.id),
         ]);
-        const entryIds = (regEntries ?? []).map((e) => e.id);
+        const entryIds = (clsEntries ?? []).map((e) => e.id);
         const raceIds = (races ?? []).map((r) => r.id);
-        let results: Array<{ race_id: string; entry_id: string; position: number | null; code: string | null }> = [];
+        let results: Array<{
+          race_id: string;
+          entry_id: string;
+          position: number | null;
+          code: string | null;
+        }> = [];
         if (raceIds.length > 0) {
           const { data: rr } = await supabaseAdmin
             .from('race_results')
@@ -217,13 +235,13 @@ router.get(
             .in('race_id', raceIds);
           results = rr ?? [];
         }
-        const { data: reg } = await supabaseAdmin
-          .from('regattas')
-          .select('discards_count')
-          .eq('id', regattaId)
-          .maybeSingle();
-        const standings = computeStandings(entryIds, races ?? [], results, reg?.discards_count ?? 0);
-        for (const s of standings) {
+        const computed = computeStandings(
+          entryIds,
+          races ?? [],
+          results,
+          cls.discards_count
+        );
+        for (const s of computed.standings) {
           rankByEntry.set(s.entry_id, {
             position: s.rank,
             total_entries: entryIds.length,
@@ -235,24 +253,20 @@ router.get(
 
     const history = (entries ?? [])
       .map((e) => {
-        const regatta = e.regatta as unknown as {
-          id: string;
-          name: string;
-          sailing_class: string;
-          location: string | null;
-          start_date: string;
-          status: string;
-        } | null;
-        if (!regatta) return null;
+        const cls = e.regatta_class as unknown as ClassRow | null;
+        const regatta = cls?.regatta;
+        if (!cls || !regatta) return null;
         const rank = rankByEntry.get(e.id);
         return {
           entry_id: e.id,
           regatta_id: regatta.id,
           regatta_name: regatta.name,
-          sailing_class: regatta.sailing_class,
+          regatta_class_id: cls.id,
+          sailing_class: cls.sailing_class,
+          class_status: cls.status,
           location: regatta.location,
           start_date: regatta.start_date,
-          status: regatta.status,
+          status: cls.status,
           boat_name: boatName.get(e.boat_id) ?? null,
           position: rank?.position ?? null,
           total_entries: rank?.total_entries ?? null,
