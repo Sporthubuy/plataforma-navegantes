@@ -13,10 +13,13 @@ export function ResultsTable({
   races,
   standings,
   effectiveDiscards = 0,
+  penaltyPoints,
 }: {
   races: Race[];
   standings: Standing[];
   effectiveDiscards?: number;
+  /** Puntos que vale un código especial (DNF, DSQ…) en esta clase. */
+  penaltyPoints?: number;
 }) {
   return (
     <div>
@@ -129,6 +132,9 @@ export function ResultsTable({
           </>
         ) : (
           'Low Point System: menos puntos es mejor.'
+        )}
+        {penaltyPoints != null && (
+          <> · DNF/DSQ = {penaltyPoints} pts</>
         )}
       </p>
     </div>

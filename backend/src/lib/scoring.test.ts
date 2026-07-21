@@ -181,6 +181,51 @@ describe('computeStandings — códigos especiales', () => {
     expect(byId.B.races[1].points).toBe(4);
   });
 
+  it('la penalización sale de los inscritos de la SERIE, no de los rankeados', () => {
+    // 3 barcos inscritos, pero C se retiró: se rankean solo A y B.
+    // El DNF de B debe seguir valiendo 3+1 = 4, no 2+1 = 3.
+    const r = computeStandings(
+      ['A', 'B'],
+      [race(1)],
+      [res(1, 'A', 1), res(1, 'B', null, 'DNF')],
+      0,
+      undefined,
+      3 // inscritos en la serie
+    );
+
+    const byId = Object.fromEntries(r.standings.map((s) => [s.entry_id, s]));
+    expect(byId.B.total).toBe(4);
+    expect(r.series_entries).toBe(3);
+    expect(r.penalty_points).toBe(4);
+  });
+
+  it('un retiro NO cambia el puntaje de los DNF ya corridos', () => {
+    const races = [race(1)];
+    const results = [res(1, 'A', 1), res(1, 'B', null, 'DNF')];
+
+    // Antes del retiro: 3 inscritos, DNF = 4.
+    const antes = computeStandings(['A', 'B', 'C'], races, results, 0, undefined, 3);
+    // Después de que C se retira: se rankean 2, pero la serie sigue en 3.
+    const despues = computeStandings(['A', 'B'], races, results, 0, undefined, 3);
+
+    const dnfAntes = antes.standings.find((s) => s.entry_id === 'B')!.total;
+    const dnfDespues = despues.standings.find((s) => s.entry_id === 'B')!.total;
+
+    expect(dnfAntes).toBe(4);
+    expect(dnfDespues).toBe(4); // estable
+    expect(despues.penalty_points).toBe(antes.penalty_points);
+  });
+
+  it('sin seriesEntries usa la cantidad de rankeados (retrocompatible)', () => {
+    const r = computeStandings(
+      ['A', 'B'],
+      [race(1)],
+      [res(1, 'A', 1), res(1, 'B', null, 'DNF')]
+    );
+    expect(r.series_entries).toBe(2);
+    expect(r.penalty_points).toBe(3);
+  });
+
   it('una manga completada sin resultado cargado puntúa como DNC', () => {
     // 2 inscriptos -> penalización = 3. B no tiene resultado en la manga 2.
     //   A: 1 + 1 = 2 ; B: 2 + DNC(3) = 5

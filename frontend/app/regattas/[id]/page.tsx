@@ -447,6 +447,7 @@ export default function RegattaDetailPage() {
                       races={classResults!.races}
                       standings={classResults!.standings}
                       effectiveDiscards={classResults!.effective_discards}
+                      penaltyPoints={classResults!.penalty_points}
                     />
                   ) : (
                     <Card className="p-6 text-center">

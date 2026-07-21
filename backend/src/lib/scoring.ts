@@ -89,16 +89,25 @@ export interface StandingsResult {
   completed_races: number;
   discards_count: number;
   discard_threshold: number;
+  /** Barcos inscritos en la serie: base del puntaje de penalización. */
+  series_entries: number;
+  /** Puntos que vale un DNF/DSQ/etc. en esta clase (serie + 1). */
+  penalty_points: number;
 }
 
 /**
  * Calcula la tabla general de UNA clase de regata.
  *
- * @param entryIds       inscriptos confirmados de la clase.
+ * @param entryIds       inscriptos que se rankean (confirmados).
  * @param races          mangas de la clase.
  * @param results        resultados cargados.
  * @param discardsCount  descartes configurados en la clase.
  * @param threshold      mangas completadas para activar el 1er descarte.
+ * @param seriesEntries  barcos INSCRITOS EN LA SERIE, base de la
+ *   penalización (RRS A9/A5.2). Incluye a los que después se
+ *   retiraron: si se contaran solo los confirmados, un retiro
+ *   cambiaría retroactivamente el DNF de todos los demás.
+ *   Por defecto, la cantidad de `entryIds`.
  */
 export function computeStandings(
   entryIds: string[],
@@ -110,9 +119,10 @@ export function computeStandings(
     code: string | null;
   }>,
   discardsCount = 0,
-  threshold: number = DEFAULT_DISCARD_THRESHOLD
+  threshold: number = DEFAULT_DISCARD_THRESHOLD,
+  seriesEntries?: number
 ): StandingsResult {
-  const entriesCount = entryIds.length;
+  const entriesCount = seriesEntries ?? entryIds.length;
   const completedRaces = races
     .filter((r) => r.status === 'completed')
     .sort((a, b) => a.race_number - b.race_number);
@@ -196,6 +206,8 @@ export function computeStandings(
     completed_races: completedRaces.length,
     discards_count: discardsCount,
     discard_threshold: threshold,
+    series_entries: entriesCount,
+    penalty_points: penaltyPoints(entriesCount),
   };
 }
 

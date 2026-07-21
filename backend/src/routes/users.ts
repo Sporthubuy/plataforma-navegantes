@@ -209,17 +209,23 @@ router.get(
     >();
     await Promise.all(
       [...finishedClasses.values()].map(async (cls) => {
-        const [{ data: clsEntries }, { data: races }] = await Promise.all([
-          supabaseAdmin
-            .from('regatta_entries')
-            .select('id')
-            .eq('regatta_class_id', cls.id)
-            .eq('status', 'confirmed'),
-          supabaseAdmin
-            .from('races')
-            .select('id, race_number, status')
-            .eq('regatta_class_id', cls.id),
-        ]);
+        const [{ data: clsEntries }, { data: races }, { count: seriesCount }] =
+          await Promise.all([
+            supabaseAdmin
+              .from('regatta_entries')
+              .select('id')
+              .eq('regatta_class_id', cls.id)
+              .eq('status', 'confirmed'),
+            supabaseAdmin
+              .from('races')
+              .select('id, race_number, status')
+              .eq('regatta_class_id', cls.id),
+            // Inscritos de la serie (con retirados): base de la penalización.
+            supabaseAdmin
+              .from('regatta_entries')
+              .select('id', { count: 'exact', head: true })
+              .eq('regatta_class_id', cls.id),
+          ]);
         const entryIds = (clsEntries ?? []).map((e) => e.id);
         const raceIds = (races ?? []).map((r) => r.id);
         let results: Array<{
@@ -239,7 +245,9 @@ router.get(
           entryIds,
           races ?? [],
           results,
-          cls.discards_count
+          cls.discards_count,
+          undefined,
+          seriesCount ?? entryIds.length
         );
         for (const s of computed.standings) {
           rankByEntry.set(s.entry_id, {

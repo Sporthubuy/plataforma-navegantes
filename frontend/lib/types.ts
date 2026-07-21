@@ -290,6 +290,10 @@ export interface ClassResults {
   completed_races: number;
   discards_count: number;
   discard_threshold: number;
+  /** Inscritos en la serie (incluye retirados): base de la penalización. */
+  series_entries: number;
+  /** Puntos que vale un DNF/DSQ/etc. en esta clase. */
+  penalty_points: number;
   standings: Standing[];
 }
 

@@ -99,6 +99,20 @@ async function countsByClass(classIds: string[]): Promise<Map<string, number>> {
   return counts;
 }
 
+/**
+ * Barcos inscritos en la serie de una clase, sin importar si después se
+ * retiraron. Es la base del puntaje de penalización (RRS A9/A5.2): debe
+ * ser estable, porque si bajara al retirarse alguien cambiarían los
+ * DNF/DSQ ya puntuados de todos los demás.
+ */
+async function seriesEntriesCount(classId: string): Promise<number> {
+  const { count } = await supabaseAdmin
+    .from('regatta_entries')
+    .select('id', { count: 'exact', head: true })
+    .eq('regatta_class_id', classId);
+  return count ?? 0;
+}
+
 /** Calcula la tabla de clasificación de una clase. */
 async function buildClassStandings(cls: {
   id: string;
@@ -106,7 +120,7 @@ async function buildClassStandings(cls: {
   discards_count: number;
   status: string;
 }) {
-  const [{ data: entries }, { data: races }] = await Promise.all([
+  const [{ data: entries }, { data: races }, seriesCount] = await Promise.all([
     supabaseAdmin
       .from('regatta_entries')
       .select(ENTRY_WITH_BOAT)
@@ -117,6 +131,10 @@ async function buildClassStandings(cls: {
       .select('id, race_number, name, status, sailed_at')
       .eq('regatta_class_id', cls.id)
       .order('race_number', { ascending: true }),
+    // Inscritos en la SERIE (incluye retirados): base de la
+    // penalización. Si se contaran solo los confirmados, un retiro
+    // bajaría retroactivamente el DNF de todos los demás.
+    seriesEntriesCount(cls.id),
   ]);
 
   const entryList = entries ?? [];
@@ -141,7 +159,9 @@ async function buildClassStandings(cls: {
     entryList.map((e) => e.id),
     raceList,
     results,
-    cls.discards_count
+    cls.discards_count,
+    undefined,
+    seriesCount
   );
 
   const entryById = new Map(entryList.map((e) => [e.id, e]));
@@ -153,6 +173,8 @@ async function buildClassStandings(cls: {
     completed_races: computed.completed_races,
     discards_count: computed.discards_count,
     discard_threshold: computed.discard_threshold,
+    series_entries: computed.series_entries,
+    penalty_points: computed.penalty_points,
     standings: computed.standings.map((s) => ({
       ...s,
       entry: entryById.get(s.entry_id) ?? null,
@@ -891,7 +913,9 @@ router.put(
       .eq('regatta_class_id', race.regatta_class_id)
       .eq('status', 'confirmed');
     const validIds = new Set((entries ?? []).map((e) => e.id));
-    const entriesCount = validIds.size;
+    // La penalización se calcula sobre los inscritos de la SERIE (con
+    // retirados incluidos), igual que en la tabla de clasificación.
+    const entriesCount = await seriesEntriesCount(race.regatta_class_id);
 
     const rows: Array<{
       race_id: string;
