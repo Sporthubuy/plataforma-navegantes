@@ -225,7 +225,8 @@ export interface RegattaClass {
   entry_count?: number;
   races?: Race[];
   eligible_boats?: EligibleBoat[];
-  my_entry?: { id: string; boat_id: string } | null;
+  /** Inscripciones propias en esta clase (puede haber más de un barco). */
+  my_entries?: Array<{ id: string; boat_id: string }>;
 }
 
 export interface RegattaDetail extends Regatta {

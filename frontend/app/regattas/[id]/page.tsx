@@ -101,43 +101,68 @@ function ClassRegistrationPanel({
   onChanged: () => void;
 }) {
   const [modal, setModal] = useState(false);
-  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawing, setWithdrawing] = useState('');
 
   const boats = cls.eligible_boats ?? [];
-  const myBoat = boats.find((b) => b.id === cls.my_entry?.boat_id);
+  const myEntries = cls.my_entries ?? [];
   const hasMatchingClass = boats.some((b) => b.class_matches);
   const hasEligible = boats.some((b) => b.eligible);
+  const boatName = (boatId: string) =>
+    boats.find((b) => b.id === boatId)?.name ?? 'tu barco';
 
-  async function withdraw() {
-    if (!window.confirm(`¿Retirar tu inscripción de ${cls.sailing_class}?`)) return;
-    setWithdrawing(true);
+  /** Retira una inscripción concreta: se indica siempre qué barco. */
+  async function withdraw(boatId: string) {
+    if (!window.confirm(`¿Retirar a ${boatName(boatId)} de ${cls.sailing_class}?`))
+      return;
+    setWithdrawing(boatId);
     try {
-      await api.delete(`/api/regattas/classes/${cls.id}/register`);
+      await api.delete(`/api/regattas/classes/${cls.id}/register`, {
+        params: { boat_id: boatId },
+      });
       toast.success('Inscripción retirada');
       onChanged();
     } catch (err) {
       toast.error(getApiError(err, 'No se pudo retirar'));
     } finally {
-      setWithdrawing(false);
+      setWithdrawing('');
     }
   }
 
-  if (cls.my_entry) {
+  if (myEntries.length > 0) {
     return (
       <Card>
         <p className="text-sm text-navy-700">
-          Estás inscripto en <strong>{cls.sailing_class}</strong>
-          {myBoat ? ` con ${myBoat.name}` : ''}. ⛵
+          {myEntries.length === 1 ? 'Estás inscripto' : 'Tenés barcos inscriptos'} en{' '}
+          <strong>{cls.sailing_class}</strong>. ⛵
         </p>
-        <Button
-          variant="danger"
-          size="sm"
-          className="mt-3"
-          onClick={withdraw}
-          disabled={withdrawing}
-        >
-          {withdrawing ? 'Retirando…' : 'Retirar inscripción'}
-        </Button>
+        <div className="mt-3 flex flex-col gap-2">
+          {myEntries.map((entry) => (
+            <div
+              key={entry.id}
+              className="flex items-center justify-between gap-2 rounded-lg border border-navy-100 p-2"
+            >
+              <span className="min-w-0 truncate text-sm font-medium text-navy-800">
+                {boatName(entry.boat_id)}
+              </span>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => withdraw(entry.boat_id)}
+                disabled={withdrawing === entry.boat_id}
+              >
+                {withdrawing === entry.boat_id ? 'Retirando…' : 'Retirar'}
+              </Button>
+            </div>
+          ))}
+        </div>
+        {hasEligible && cls.status === 'open' && (
+          <Button size="sm" className="mt-3" onClick={() => setModal(true)}>
+            Inscribir otro barco
+          </Button>
+        )}
+        {modal && (
+          <RegisterModal cls={cls} onClose={() => setModal(false)} onDone={onChanged} />
+        )}
       </Card>
     );
   }

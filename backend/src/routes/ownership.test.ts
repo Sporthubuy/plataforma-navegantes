@@ -285,16 +285,23 @@ describe('inscripción ajena', () => {
     expect(res.body.error).toMatch(/no tienes una inscripción/i);
   });
 
-  it('HALLAZGO: con 2 barcos propios en la clase retira uno arbitrario', async () => {
-    // El endpoint no recibe boat_id: hace `.find()` sobre las entries
-    // confirmadas, así que si el usuario inscribió dos barcos en la
-    // misma clase no puede elegir cuál retirar (se va el primero).
+  it('con 2 barcos propios y sin boat_id pide elegir (422) en vez de adivinar', async () => {
     holder.current = createSupabaseMock({
       profiles: activeProfile(DUENIO),
       regatta_entries: {
         data: [
-          { id: 'entry-barco-A', registered_by: DUENIO, boat: { owner_id: DUENIO } },
-          { id: 'entry-barco-B', registered_by: DUENIO, boat: { owner_id: DUENIO } },
+          {
+            id: 'entry-A',
+            boat_id: 'boat-A',
+            registered_by: DUENIO,
+            boat: { id: 'boat-A', name: 'Gaviota', owner_id: DUENIO },
+          },
+          {
+            id: 'entry-B',
+            boat_id: 'boat-B',
+            registered_by: DUENIO,
+            boat: { id: 'boat-B', name: 'Ráfaga', owner_id: DUENIO },
+          },
         ],
         error: null,
       },
@@ -307,8 +314,88 @@ describe('inscripción ajena', () => {
       .delete('/api/regattas/classes/class-1/register')
       .set(auth(DUENIO));
 
-    // Documenta el comportamiento actual: retira sin preguntar cuál.
+    expect(res.status).toBe(422);
+    expect(res.body.error).toMatch(/indicá cuál retirar/i);
+    // Devuelve los candidatos para que el cliente pueda elegir.
+    expect(res.body.boats).toEqual([
+      { boat_id: 'boat-A', name: 'Gaviota' },
+      { boat_id: 'boat-B', name: 'Ráfaga' },
+    ]);
+  });
+
+  it('con boat_id retira exactamente ese barco', async () => {
+    const mock = createSupabaseMock({
+      profiles: activeProfile(DUENIO),
+      regatta_entries: {
+        data: [
+          {
+            id: 'entry-A',
+            boat_id: 'boat-A',
+            registered_by: DUENIO,
+            boat: { id: 'boat-A', name: 'Gaviota', owner_id: DUENIO },
+          },
+          {
+            id: 'entry-B',
+            boat_id: 'boat-B',
+            registered_by: DUENIO,
+            boat: { id: 'boat-B', name: 'Ráfaga', owner_id: DUENIO },
+          },
+        ],
+        error: null,
+      },
+    });
+    holder.current = mock;
+    vi.resetModules();
+    const { default: regattasRouter } = await import('./regattas');
+    const app = createTestApp([{ path: '/api/regattas', router: regattasRouter }]);
+
+    const res = await request(app)
+      .delete('/api/regattas/classes/class-1/register?boat_id=boat-B')
+      .set(auth(DUENIO));
+
     expect(res.status).toBe(204);
+
+    // El update apuntó a la entry del barco B, no a la primera de la lista.
+    // Se correlaciona por tabla: `calls[i]` es la tabla de `results[i]`
+    // (requireAuth también hace un update sobre `profiles`).
+    const entriesUpdate = mock.from.mock.results
+      .map((r, i) => ({ tabla: mock.calls[i], chain: r.value as Record<string, unknown> }))
+      .find(
+        ({ tabla, chain }) =>
+          tabla === 'regatta_entries' &&
+          (chain.update as { mock: { calls: unknown[][] } }).mock.calls.length > 0
+      );
+
+    expect(entriesUpdate).toBeDefined();
+    const eqCalls = (entriesUpdate!.chain.eq as { mock: { calls: unknown[][] } }).mock.calls;
+    expect(eqCalls.some((c) => c[1] === 'entry-B')).toBe(true);
+  });
+
+  it('404 si el boat_id indicado no es una inscripción propia', async () => {
+    holder.current = createSupabaseMock({
+      profiles: activeProfile(DUENIO),
+      regatta_entries: {
+        data: [
+          {
+            id: 'entry-A',
+            boat_id: 'boat-A',
+            registered_by: DUENIO,
+            boat: { id: 'boat-A', name: 'Gaviota', owner_id: DUENIO },
+          },
+        ],
+        error: null,
+      },
+    });
+    vi.resetModules();
+    const { default: regattasRouter } = await import('./regattas');
+    const app = createTestApp([{ path: '/api/regattas', router: regattasRouter }]);
+
+    const res = await request(app)
+      .delete('/api/regattas/classes/class-1/register?boat_id=boat-ajeno')
+      .set(auth(DUENIO));
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/ese barco/i);
   });
 
   it('el dueño del barco sí puede retirar su inscripción', async () => {

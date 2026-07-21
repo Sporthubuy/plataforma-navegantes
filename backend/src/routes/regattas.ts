@@ -298,11 +298,10 @@ router.get(
     }
 
     const enrichedClasses = classList.map((c) => {
-      const registeredBoatIds = new Set(
-        myEntries.filter((e) => e.regatta_class_id === c.id).map((e) => e.boat_id)
-      );
-      const myEntry =
-        myEntries.find((e) => e.regatta_class_id === c.id) ?? null;
+      // Todas las inscripciones del usuario en ESTA clase: puede tener
+      // más de un barco propio compitiendo en la misma flota.
+      const mine = myEntries.filter((e) => e.regatta_class_id === c.id);
+      const registeredBoatIds = new Set(mine.map((e) => e.boat_id));
       return {
         ...c,
         entry_count: counts.get(c.id) ?? 0,
@@ -315,7 +314,7 @@ router.get(
           eligible:
             b.category === c.sailing_class && !registeredBoatIds.has(b.id),
         })),
-        my_entry: myEntry,
+        my_entries: mine,
       };
     });
 
@@ -1082,31 +1081,64 @@ router.post(
   })
 );
 
-/** DELETE /api/regattas/classes/:classId/register — retira la inscripción. */
+/**
+ * DELETE /api/regattas/classes/:classId/register — retira una inscripción.
+ *
+ * Acepta `boat_id` (query o body) para elegir cuál retirar. Si el
+ * usuario tiene un solo barco inscripto se puede omitir; si tiene
+ * varios y no lo indica, responde 422 con la lista de candidatos en
+ * vez de retirar uno arbitrario.
+ */
 router.delete(
   '/classes/:classId/register',
   requireAuth,
   asyncHandler(async (req, res) => {
     const { data: entries } = await supabaseAdmin
       .from('regatta_entries')
-      .select('id, registered_by, boat:boats(owner_id)')
+      .select('id, boat_id, registered_by, boat:boats(id, name, owner_id)')
       .eq('regatta_class_id', req.params.classId)
       .eq('status', 'confirmed');
 
-    const mine = (entries ?? []).find(
+    const mine = (entries ?? []).filter(
       (e) =>
         e.registered_by === req.user!.id ||
         (e.boat as unknown as { owner_id?: string } | null)?.owner_id ===
           req.user!.id
     );
-    if (!mine) {
+    if (mine.length === 0) {
       return res.status(404).json({ error: 'No tienes una inscripción activa' });
+    }
+
+    const rawBoatId =
+      typeof req.query.boat_id === 'string' ? req.query.boat_id : req.body?.boat_id;
+
+    let target: (typeof mine)[number];
+    if (isNonEmptyString(rawBoatId)) {
+      const found = mine.find((e) => e.boat_id === rawBoatId);
+      if (!found) {
+        return res
+          .status(404)
+          .json({ error: 'No tienes ese barco inscripto en esta clase' });
+      }
+      target = found;
+    } else if (mine.length === 1) {
+      target = mine[0];
+    } else {
+      // Ambiguo: que elija, no adivinamos por él.
+      return res.status(422).json({
+        error:
+          'Tienes más de un barco inscripto en esta clase: indicá cuál retirar (boat_id)',
+        boats: mine.map((e) => ({
+          boat_id: e.boat_id,
+          name: (e.boat as unknown as { name?: string } | null)?.name ?? null,
+        })),
+      });
     }
 
     const { error } = await supabaseAdmin
       .from('regatta_entries')
       .update({ status: 'withdrawn' })
-      .eq('id', mine.id);
+      .eq('id', target.id);
     if (error) throw error;
 
     return res.status(204).send();
