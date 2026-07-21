@@ -4,6 +4,7 @@ import { formatDateRange } from '@/lib/format';
 import type { Regatta } from '@/lib/types';
 
 export function RegattaCard({ regatta }: { regatta: Regatta }) {
+  const classes = regatta.classes ?? [];
   return (
     <Link
       href={`/regattas/${regatta.id}`}
@@ -22,25 +23,39 @@ export function RegattaCard({ regatta }: { regatta: Regatta }) {
         </div>
       )}
       <div className="flex flex-1 flex-col p-4">
-        <div className="mb-2 flex items-start justify-between gap-2">
-          <h3 className="font-bold text-navy-900">{regatta.name}</h3>
-        </div>
+        <h3 className="mb-2 font-bold text-navy-900">{regatta.name}</h3>
         <RegattaStatusBadge status={regatta.status} />
-        <dl className="mt-3 flex flex-col gap-1 text-sm text-navy-500">
-          <div className="flex items-center gap-1.5">
-            <span className="font-medium text-navy-700">
-              {regatta.sailing_class}
-            </span>
-            {regatta.location && <span>· {regatta.location}</span>}
+
+        {/* Clases del campeonato */}
+        {classes.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {classes.map((c) => (
+              <span
+                key={c.id}
+                className="rounded-full bg-navy-100 px-2 py-0.5 text-xs font-medium text-navy-700"
+                title={`${c.entry_count ?? 0} inscriptos`}
+              >
+                {c.sailing_class}
+                <span className="ml-1 text-navy-400">{c.entry_count ?? 0}</span>
+              </span>
+            ))}
           </div>
+        )}
+
+        <dl className="mt-3 flex flex-col gap-1 text-sm text-navy-500">
+          {regatta.location && <div>{regatta.location}</div>}
           <div>{formatDateRange(regatta.start_date, regatta.end_date)}</div>
         </dl>
-        <div className="mt-3 flex items-center gap-1.5 text-xs text-navy-400">
+
+        <div className="mt-3 text-xs text-navy-400">
+          <span className="font-semibold text-navy-600">
+            {classes.length}
+          </span>{' '}
+          {classes.length === 1 ? 'clase' : 'clases'} ·{' '}
           <span className="font-semibold text-navy-600">
             {regatta.entry_count ?? 0}
-          </span>
+          </span>{' '}
           {(regatta.entry_count ?? 0) === 1 ? 'inscripto' : 'inscriptos'}
-          {regatta.max_entries ? ` · cupo ${regatta.max_entries}` : ''}
         </div>
       </div>
     </Link>

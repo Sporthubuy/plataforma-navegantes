@@ -183,37 +183,53 @@ export type RegattaStatus =
   | 'finished'
   | 'cancelled';
 
+/** El campeonato (evento). No tiene clase propia. */
 export interface Regatta {
   id: string;
   name: string;
   description: string | null;
-  sailing_class: string;
   location: string | null;
   start_date: string;
   end_date: string;
   status: RegattaStatus;
   registration_opens_at: string | null;
   registration_closes_at: string | null;
-  max_entries: number | null;
   scoring_system: string;
-  discards_count: number;
   photo_url: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
   entry_count?: number;
+  classes?: RegattaClass[];
 }
 
 export interface Race {
   id: string;
+  regatta_class_id?: string;
   race_number: number;
   name: string | null;
   status: 'scheduled' | 'completed';
   sailed_at: string | null;
 }
 
+/** Clase/flota de un campeonato: corre por separado. */
+export interface RegattaClass {
+  id: string;
+  regatta_id: string;
+  sailing_class: string;
+  discards_count: number;
+  max_entries: number | null;
+  status: RegattaStatus;
+  created_at: string;
+  updated_at: string;
+  entry_count?: number;
+  races?: Race[];
+  eligible_boats?: EligibleBoat[];
+  my_entry?: { id: string; boat_id: string } | null;
+}
+
 export interface RegattaDetail extends Regatta {
-  races: Race[];
+  classes: RegattaClass[];
 }
 
 export interface EligibleBoat {
@@ -230,6 +246,7 @@ export interface EligibleBoat {
 export interface RegattaEntry {
   id: string;
   regatta_id: string;
+  regatta_class_id: string;
   boat_id: string;
   registered_by: string;
   sail_number: string | null;
@@ -247,6 +264,7 @@ export interface RegattaEntry {
 
 export interface StandingRacePoint {
   race_id: string;
+  race_number: number;
   points: number;
   position: number | null;
   code: string | null;
@@ -262,11 +280,25 @@ export interface Standing {
   entry: RegattaEntry | null;
 }
 
+/** Bloque de resultados de UNA clase. */
+export interface ClassResults {
+  regatta_class: RegattaClass;
+  races: Race[];
+  entry_count: number;
+  effective_discards: number;
+  completed_races: number;
+  discards_count: number;
+  discard_threshold: number;
+  standings: Standing[];
+}
+
 export interface RegattaHistoryItem {
   entry_id: string;
   regatta_id: string;
   regatta_name: string;
+  regatta_class_id: string;
   sailing_class: string;
+  class_status: RegattaStatus;
   location: string | null;
   start_date: string;
   status: RegattaStatus;

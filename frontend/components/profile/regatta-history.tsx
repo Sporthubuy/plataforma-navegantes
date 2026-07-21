@@ -70,9 +70,15 @@ export function RegattaHistory({ userId }: { userId: string }) {
             <p className="truncate font-semibold text-navy-900">
               {item.regatta_name}
             </p>
-            <p className="truncate text-xs text-navy-400">
-              {item.sailing_class} · {formatDate(item.start_date)}
-              {item.boat_name ? ` · ${item.boat_name}` : ''}
+            <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-navy-400">
+              {/* La clase siempre visible: es la flota en la que corrió. */}
+              <span className="rounded-full bg-navy-100 px-2 py-0.5 font-medium text-navy-700">
+                {item.sailing_class}
+              </span>
+              <span className="truncate">
+                {formatDate(item.start_date)}
+                {item.boat_name ? ` · ${item.boat_name}` : ''}
+              </span>
             </p>
           </div>
           <PositionBadge item={item} />

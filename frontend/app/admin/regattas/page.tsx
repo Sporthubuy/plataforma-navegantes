@@ -54,7 +54,9 @@ export default function AdminRegattasPage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold text-navy-900">{r.name}</p>
                 <p className="truncate text-xs text-navy-400">
-                  {r.sailing_class} · {formatDateRange(r.start_date, r.end_date)} ·{' '}
+                  {(r.classes ?? []).map((c) => c.sailing_class).join(', ') ||
+                    'sin clases'}{' '}
+                  · {formatDateRange(r.start_date, r.end_date)} ·{' '}
                   {r.entry_count ?? 0} inscriptos
                 </p>
               </div>
