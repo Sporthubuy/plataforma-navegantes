@@ -31,6 +31,34 @@ export const REGATTA_STATUS: Record<
   },
 };
 
+/**
+ * Ciclo de vida del estado (espejo de la validación del backend):
+ *   upcoming → open → in_progress → finished
+ * más `cancelled` desde cualquier estado no terminal.
+ * `finished` y `cancelled` son terminales.
+ */
+const STATUS_TRANSITIONS: Record<RegattaStatus, RegattaStatus[]> = {
+  upcoming: ['open', 'cancelled'],
+  open: ['in_progress', 'cancelled'],
+  in_progress: ['finished', 'cancelled'],
+  finished: [],
+  cancelled: [],
+};
+
+/**
+ * Estados que se pueden elegir desde `current`: el actual (no-op) más
+ * los alcanzables. Se usa para que los selectores no ofrezcan opciones
+ * que el backend va a rechazar con 422.
+ */
+export function allowedRegattaStatuses(current: RegattaStatus): RegattaStatus[] {
+  return [current, ...STATUS_TRANSITIONS[current]];
+}
+
+/** ¿Es un estado terminal (ya no admite cambios)? */
+export function isTerminalStatus(status: RegattaStatus): boolean {
+  return STATUS_TRANSITIONS[status].length === 0;
+}
+
 export function RegattaStatusBadge({ status }: { status: RegattaStatus }) {
   const s = REGATTA_STATUS[status];
   return (

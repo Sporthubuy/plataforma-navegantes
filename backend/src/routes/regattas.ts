@@ -24,6 +24,38 @@ const ENTRY_WITH_BOAT =
 
 const VALID_STATUS = ['upcoming', 'open', 'in_progress', 'finished', 'cancelled'];
 
+/**
+ * Ciclo de vida del estado (mismo para el campeonato y para cada clase):
+ *   upcoming → open → in_progress → finished
+ * y `cancelled` desde cualquier estado no terminal.
+ * `finished` y `cancelled` son terminales.
+ */
+const STATUS_TRANSITIONS: Record<string, string[]> = {
+  upcoming: ['open', 'cancelled'],
+  open: ['in_progress', 'cancelled'],
+  in_progress: ['finished', 'cancelled'],
+  finished: [],
+  cancelled: [],
+};
+
+/** Estados a los que se puede pasar desde `current` (incluye quedarse igual). */
+export function allowedTransitions(current: string): string[] {
+  return [current, ...(STATUS_TRANSITIONS[current] ?? [])];
+}
+
+/**
+ * Devuelve el mensaje de error si la transición no es válida, o null si
+ * lo es. Quedarse en el mismo estado siempre es válido (no-op).
+ */
+function transitionError(current: string, next: string): string | null {
+  if (current === next) return null;
+  const allowed = STATUS_TRANSITIONS[current] ?? [];
+  if (!allowed.includes(next)) {
+    return `No se puede pasar de "${current}" a "${next}"`;
+  }
+  return null;
+}
+
 interface ClassRow {
   id: string;
   regatta_id: string;
@@ -443,7 +475,7 @@ router.put(
   asyncHandler(async (req, res) => {
     const { data: regatta } = await supabaseAdmin
       .from('regattas')
-      .select('id')
+      .select('id, status')
       .eq('id', req.params.id)
       .maybeSingle();
     if (!regatta) {
@@ -476,6 +508,12 @@ router.put(
     if (body.status !== undefined) {
       if (!VALID_STATUS.includes(body.status)) {
         return res.status(400).json({ error: 'Estado inválido' });
+      }
+      // Misma validación de transición que en PUT /:id/status: este
+      // endpoint no puede ser un atajo para saltarse el ciclo de vida.
+      const invalid = transitionError(regatta.status, body.status);
+      if (invalid) {
+        return res.status(422).json({ error: invalid });
       }
       updates.status = body.status;
     }
@@ -537,14 +575,28 @@ router.put(
     if (!VALID_STATUS.includes(status)) {
       return res.status(400).json({ error: 'Estado inválido' });
     }
+
+    const { data: current } = await supabaseAdmin
+      .from('regattas')
+      .select('id, status')
+      .eq('id', req.params.id)
+      .maybeSingle();
+    if (!current) {
+      return res.status(404).json({ error: 'Regata no encontrada' });
+    }
+
+    const invalid = transitionError(current.status, status);
+    if (invalid) {
+      return res.status(422).json({ error: invalid });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('regattas')
       .update({ status })
-      .eq('id', req.params.id)
+      .eq('id', current.id)
       .select(REGATTA_FIELDS)
-      .maybeSingle();
+      .single();
     if (error) throw error;
-    if (!data) return res.status(404).json({ error: 'Regata no encontrada' });
     return res.json({ regatta: data });
   })
 );
@@ -614,7 +666,7 @@ router.put(
   asyncHandler(async (req, res) => {
     const { data: cls } = await supabaseAdmin
       .from('regatta_classes')
-      .select('id, sailing_class')
+      .select('id, sailing_class, status')
       .eq('id', req.params.classId)
       .maybeSingle();
     if (!cls) {
@@ -654,6 +706,11 @@ router.put(
       if (!VALID_STATUS.includes(body.status)) {
         return res.status(400).json({ error: 'Estado inválido' });
       }
+      // Misma validación que en PUT /classes/:classId/status.
+      const invalid = transitionError(cls.status, body.status);
+      if (invalid) {
+        return res.status(422).json({ error: invalid });
+      }
       updates.status = body.status;
     }
 
@@ -682,14 +739,28 @@ router.put(
     if (!VALID_STATUS.includes(status)) {
       return res.status(400).json({ error: 'Estado inválido' });
     }
+
+    const { data: current } = await supabaseAdmin
+      .from('regatta_classes')
+      .select('id, status')
+      .eq('id', req.params.classId)
+      .maybeSingle();
+    if (!current) {
+      return res.status(404).json({ error: 'Clase no encontrada' });
+    }
+
+    const invalid = transitionError(current.status, status);
+    if (invalid) {
+      return res.status(422).json({ error: invalid });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('regatta_classes')
       .update({ status })
-      .eq('id', req.params.classId)
+      .eq('id', current.id)
       .select(CLASS_FIELDS)
-      .maybeSingle();
+      .single();
     if (error) throw error;
-    if (!data) return res.status(404).json({ error: 'Clase no encontrada' });
     return res.json({ regatta_class: data });
   })
 );

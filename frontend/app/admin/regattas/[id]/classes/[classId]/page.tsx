@@ -10,21 +10,18 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Select } from '@/components/ui/input';
 import { RaceResultsEditor } from '@/components/regatta/race-results-editor';
-import { RegattaStatusBadge, REGATTA_STATUS } from '@/components/regatta/status-badge';
+import {
+  RegattaStatusBadge,
+  REGATTA_STATUS,
+  allowedRegattaStatuses,
+  isTerminalStatus,
+} from '@/components/regatta/status-badge';
 import type {
   ClassResults,
   Race,
   RegattaEntry,
   RegattaStatus,
 } from '@/lib/types';
-
-const ALL_STATUS: RegattaStatus[] = [
-  'upcoming',
-  'open',
-  'in_progress',
-  'finished',
-  'cancelled',
-];
 
 /** Una manga con su editor de resultados desplegable. */
 function RaceRow({
@@ -236,20 +233,26 @@ export default function ManageClassPage() {
             </span>
             <RegattaStatusBadge status={cls.status} />
           </div>
-          {canEdit && (
-            <Select
-              value={cls.status}
-              onChange={(e) => changeStatus(e.target.value as RegattaStatus)}
-              className="w-auto py-1.5 text-sm"
-              aria-label="Estado de la clase"
-            >
-              {ALL_STATUS.map((s) => (
-                <option key={s} value={s}>
-                  {REGATTA_STATUS[s].label}
-                </option>
-              ))}
-            </Select>
-          )}
+          {canEdit &&
+            (isTerminalStatus(cls.status) ? (
+              <span className="text-xs text-navy-400">
+                Estado final: ya no admite cambios.
+              </span>
+            ) : (
+              // Solo los estados alcanzables desde el actual.
+              <Select
+                value={cls.status}
+                onChange={(e) => changeStatus(e.target.value as RegattaStatus)}
+                className="w-auto py-1.5 text-sm"
+                aria-label="Estado de la clase"
+              >
+                {allowedRegattaStatuses(cls.status).map((s) => (
+                  <option key={s} value={s}>
+                    {REGATTA_STATUS[s].label}
+                  </option>
+                ))}
+              </Select>
+            ))}
         </div>
         <p className="mt-2 text-sm text-navy-500">
           {data.entry_count} inscriptos · {data.completed_races} mangas completadas

@@ -11,7 +11,12 @@ import { Button } from '@/components/ui/button';
 import { Field, Input, Select } from '@/components/ui/input';
 import { BOAT_CATEGORIES } from '@/components/boat-form';
 import { RegattaForm, type RegattaFormData } from '@/components/regatta/regatta-form';
-import { RegattaStatusBadge, REGATTA_STATUS } from '@/components/regatta/status-badge';
+import {
+  RegattaStatusBadge,
+  REGATTA_STATUS,
+  allowedRegattaStatuses,
+  isTerminalStatus,
+} from '@/components/regatta/status-badge';
 import type { RegattaDetail, RegattaStatus } from '@/lib/types';
 
 const CLASSES = BOAT_CATEGORIES.filter((c) => c !== 'Otra');
@@ -241,24 +246,31 @@ export default function ManageRegattaPage() {
             <span className="font-bold text-navy-900">{regatta.name}</span>
             <RegattaStatusBadge status={regatta.status} />
           </div>
-          {canEdit && (
-            <Select
-              value={regatta.status}
-              onChange={(e) => changeStatus(e.target.value as RegattaStatus)}
-              className="w-auto py-1.5 text-sm"
-              aria-label="Estado del campeonato"
-            >
-              {ALL_STATUS.map((s) => (
-                <option key={s} value={s}>
-                  {REGATTA_STATUS[s].label}
-                </option>
-              ))}
-            </Select>
-          )}
+          {canEdit &&
+            (isTerminalStatus(regatta.status) ? (
+              <span className="text-xs text-navy-400">
+                Estado final: ya no admite cambios.
+              </span>
+            ) : (
+              // Solo los estados alcanzables: el backend rechaza el resto.
+              <Select
+                value={regatta.status}
+                onChange={(e) => changeStatus(e.target.value as RegattaStatus)}
+                className="w-auto py-1.5 text-sm"
+                aria-label="Estado del campeonato"
+              >
+                {allowedRegattaStatuses(regatta.status).map((s) => (
+                  <option key={s} value={s}>
+                    {REGATTA_STATUS[s].label}
+                  </option>
+                ))}
+              </Select>
+            ))}
         </div>
         <p className="mt-2 text-xs text-navy-400">
           Estado informativo del campeonato. Las inscripciones y resultados los
-          gobierna el estado de cada clase.
+          gobierna el estado de cada clase. El ciclo avanza en un solo sentido:
+          próxima → inscripciones abiertas → en curso → finalizada.
         </p>
       </Card>
 
