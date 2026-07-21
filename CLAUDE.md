@@ -67,10 +67,13 @@ Campos adicionales en `profiles` (todos nullable):
 
 Modelo estándar de la vela (respetarlo tal cual):
 
-- Una **regata** (`regattas`) es un evento de **una clase** de barco (`sailing_class`) con varias **mangas** (`races`).
-- Los barcos se **inscriben** (`regatta_entries`, una entry por barco). Solo pueden inscribirse barcos cuya **clase (`boats.category`) coincida** con la de la regata.
+- Una **regata** (`regattas`) es el **evento/campeonato** (ej: "Campeonato de Verano 2026"). **No tiene clase propia.**
+- Un campeonato tiene varias **clases** (`regatta_classes`, flotas/divisiones: Snipe, ILCA, …). **Cada clase corre por separado**, con sus propias mangas, inscripciones, resultados, descartes (`discards_count`), cupo (`max_entries`) y **estado propio** (una clase puede estar en curso y otra ya terminada).
+- Las **mangas** (`races`) y las **inscripciones** (`regatta_entries`) cuelgan de la **clase** (`regatta_class_id`), no de la regata. La numeración de mangas es **por clase** (cada clase arranca en 1).
+- El `status` de `regattas` es un estado **paraguas informativo**; el que manda para inscripción y resultados es el **de cada clase**.
+- Los barcos se **inscriben a una clase**. Solo pueden inscribirse barcos cuya **clase (`boats.category`) coincida** con `regatta_classes.sailing_class`.
 - Cada manga produce una **posición** por barco (`race_results`). Puntaje **Low Point System**: posición = puntos (1º = 1 pt), gana quien **menos** suma.
-- El resultado final es la **suma de puntos** de todas las mangas por barco, con **descartes** opcionales (`discards_count`, 0 = ninguno por ahora).
+- El resultado final es la **suma de puntos** de las mangas por barco, con **descartes** por clase: se descartan las N peores mangas (mayor puntaje). Los descartes **solo aplican a partir de un umbral** de mangas completadas (default: 4); con menos mangas no se descarta nada aunque `discards_count > 0`. Se expone **total bruto y neto** y qué mangas fueron descartadas.
 - Códigos especiales de la vela (`DNF`, `DNS`, `DSQ`, `DNC`, `OCS`, `RET`) puntúan como **cantidad de inscriptos + 1**.
 - **Estados de regata:** `upcoming` (creada) → `open` (inscripciones abiertas) → `in_progress` → `finished`, o `cancelled`.
 - **Permisos** granulares nuevos: `regattas.create`, `regattas.edit`, `regattas.delete`, `regattas.manage_results`. Enforcement en el backend con service role; RLS bloquea escritura directa de clientes.
