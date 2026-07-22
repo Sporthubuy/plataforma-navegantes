@@ -29,8 +29,62 @@
   --sidebar-width: 14rem;
 }
 
+/*
+ * Modo oscuro.
+ *
+ * Toda la app pinta con la escala `navy` y con `white` para las
+ * superficies, así que alcanza con redefinir esos tokens: no hay que
+ * tocar ni un componente. La escala se invierte (50 pasa a ser el tono
+ * más oscuro y 950 el más claro), de modo que `text-navy-900` sigue
+ * siendo "texto fuerte" y `bg-navy-50` sigue siendo "fondo suave".
+ *
+ * `white` deja de ser blanco puro y pasa a ser la superficie elevada
+ * (tarjetas, barras), que es exactamente el papel que cumple en claro.
+ */
+@layer theme {
+  :root[data-theme='dark'] {
+    --color-white: #16202e;
+
+    --color-navy-50: #0d1520;
+    --color-navy-100: #1e2a3a;
+    --color-navy-200: #2b3a4d;
+    --color-navy-300: #3d5065;
+    --color-navy-400: #8496ad;
+    --color-navy-500: #a3b3c7;
+    --color-navy-600: #c0ccdb;
+    --color-navy-700: #d5dee9;
+    --color-navy-800: #4aa3c7;
+    --color-navy-900: #e8eef6;
+    --color-navy-950: #f2f6fb;
+
+    --color-water-50: #10303a;
+    --color-water-100: #16414e;
+    --color-water-600: #4ec7d8;
+
+    --color-sage-100: #16321f;
+    --color-sage-700: #6ed898;
+    --color-sand-100: #35290f;
+    --color-sand-700: #e5b95e;
+  }
+}
+
+/* El texto sobre los botones de acento tiene que seguir siendo claro:
+   `white` ahora es una superficie oscura y no sirve de contraste. */
+:root[data-theme='dark'] .bg-navy-800,
+:root[data-theme='dark'] .bg-navy-900,
+:root[data-theme='dark'] .bg-water-600 {
+  color: #08121d;
+}
+
 html {
   overflow-x: hidden;
+  /* Evita el destello blanco entre el HTML y la hidratación. */
+  background: var(--color-navy-50);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 @keyframes fadeIn {

@@ -8,6 +8,7 @@ import {
   Bookmark,
   LogOut,
   ShieldAlert,
+  Palette,
   UserPen,
   Globe,
   Clock,
@@ -18,6 +19,7 @@ import { useAuth } from '@/lib/auth-context';
 import { api, getApiError } from '@/lib/api';
 import { AppShell } from '@/components/app-shell';
 import { Card } from '@/components/ui/card';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Input, Field, Select } from '@/components/ui/input';
 import { PostCard } from '@/components/feed/post-card';
@@ -91,6 +93,21 @@ export default function SettingsPage() {
     <AppShell>
       <div className="mx-auto w-full max-w-2xl">
         <h1 className="sr-only">Ajustes</h1>
+
+        {/* Apariencia */}
+        <Card className="mb-4">
+          <h2 className="flex items-center gap-2 font-semibold text-navy-900">
+            <Palette className="h-4 w-4 text-navy-400" />
+            Apariencia
+          </h2>
+          <p className="mt-1 text-sm text-navy-500">
+            Elegí el tema. Con &quot;Sistema&quot; sigue la preferencia de tu
+            equipo.
+          </p>
+          <div className="mt-3">
+            <ThemeToggle />
+          </div>
+        </Card>
 
         {/* Cuenta */}
         <Card>
