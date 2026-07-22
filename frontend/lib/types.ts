@@ -71,16 +71,44 @@ export interface BoatOwner {
   avatar_url: string | null;
 }
 
+export const HULL_MATERIALS = [
+  'Fibra',
+  'Madera',
+  'Aluminio',
+  'Acero',
+  'Carbono',
+  'Otro',
+] as const;
+export type HullMaterial = (typeof HULL_MATERIALS)[number];
+
+export const RATING_SYSTEMS = ['ORC', 'IRC', 'PHRF', 'Otro'] as const;
+export type RatingSystem = (typeof RATING_SYSTEMS)[number];
+
 export interface Boat {
   id: string;
   name: string;
   sail_number: string | null;
+  /** Clase de vela: la que decide la elegibilidad en regatas. */
   category: string;
   photo_url: string | null;
   owner_id: string;
   created_at: string;
   updated_at: string;
   owner?: BoatOwner | null;
+
+  // Ficha ampliada — todo opcional.
+  builder: string | null;
+  model: string | null;
+  designer: string | null;
+  year_built: number | null;
+  hull_material: HullMaterial | null;
+  registration_number: string | null;
+  home_port: string | null;
+  /** Código ISO 3166-1 alfa-2 (UY, AR, ES…). */
+  flag: string | null;
+  rating_system: RatingSystem | null;
+  rating_value: number | null;
+  crew_capacity: number | null;
 }
 
 export interface MyBoat extends Boat {

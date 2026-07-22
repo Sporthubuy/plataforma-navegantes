@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/card';
 import { Button, buttonClasses } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Field, Select, controlClasses } from '@/components/ui/input';
+import { BoatSpecs } from '@/components/boat-specs';
 import type { BoatWithCrew, UserSearchResult } from '@/lib/types';
 
 const CREW_ROLES = [
@@ -319,6 +320,8 @@ export default function BoatPage() {
                 </span>
               </div>
             )}
+
+            <BoatSpecs boat={boat} />
           </div>
         </div>
 

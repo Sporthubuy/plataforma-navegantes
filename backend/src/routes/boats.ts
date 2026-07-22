@@ -7,9 +7,154 @@ import { extForMime, imageUpload } from '../lib/upload';
 
 const router = Router();
 
-const BOAT_FIELDS =
-  'id, name, sail_number, category, photo_url, owner_id, created_at, updated_at';
+const BOAT_FIELDS = `
+  id, name, sail_number, category, photo_url, owner_id, created_at, updated_at,
+  builder, model, designer, year_built, hull_material,
+  registration_number, home_port, flag,
+  rating_system, rating_value, crew_capacity
+`;
 const BOAT_WITH_OWNER = `${BOAT_FIELDS}, owner:profiles(id, username, name, avatar_url)`;
+
+export const HULL_MATERIALS = [
+  'Fibra',
+  'Madera',
+  'Aluminio',
+  'Acero',
+  'Carbono',
+  'Otro',
+] as const;
+export const RATING_SYSTEMS = ['ORC', 'IRC', 'PHRF', 'Otro'] as const;
+
+/** Campos de texto libre de la ficha ampliada: columna → largo máximo. */
+const TEXT_DETAILS: Record<string, number> = {
+  builder: 100,
+  model: 100,
+  designer: 100,
+  registration_number: 50,
+  home_port: 100,
+};
+
+type DetailsResult =
+  | { updates: Record<string, unknown>; error?: undefined }
+  | { updates?: undefined; error: string };
+
+/**
+ * Valida y normaliza los campos opcionales de la ficha del barco.
+ * Solo toca las claves presentes en el body: mandar `null` o `''`
+ * limpia el campo, y omitirlo lo deja como está.
+ *
+ * `currentRatingSystem` es el que ya tiene el barco en la base, para
+ * poder aceptar un `rating_value` suelto en un PUT sin violar el
+ * CHECK que exige sistema cuando hay valor.
+ */
+function parseBoatDetails(
+  body: Record<string, unknown>,
+  currentRatingSystem: string | null = null
+): DetailsResult {
+  const updates: Record<string, unknown> = {};
+
+  for (const [field, maxLength] of Object.entries(TEXT_DETAILS)) {
+    const raw = body[field];
+    if (raw === undefined) continue;
+    if (!isNonEmptyString(raw)) {
+      updates[field] = null;
+      continue;
+    }
+    const value = raw.trim();
+    if (value.length > maxLength) {
+      return { error: `El campo no puede superar los ${maxLength} caracteres` };
+    }
+    updates[field] = value;
+  }
+
+  if (body.year_built !== undefined) {
+    if (body.year_built === null || body.year_built === '') {
+      updates.year_built = null;
+    } else {
+      const year = Number(body.year_built);
+      // Se permiten un par de años hacia adelante: los barcos se
+      // encargan antes de estar botados.
+      const maxYear = new Date().getFullYear() + 2;
+      if (!Number.isInteger(year) || year < 1800 || year > maxYear) {
+        return { error: `El año debe estar entre 1800 y ${maxYear}` };
+      }
+      updates.year_built = year;
+    }
+  }
+
+  if (body.hull_material !== undefined) {
+    if (!isNonEmptyString(body.hull_material)) {
+      updates.hull_material = null;
+    } else if (
+      !(HULL_MATERIALS as readonly string[]).includes(body.hull_material.trim())
+    ) {
+      return { error: 'Material de casco no válido' };
+    } else {
+      updates.hull_material = body.hull_material.trim();
+    }
+  }
+
+  if (body.flag !== undefined) {
+    if (!isNonEmptyString(body.flag)) {
+      updates.flag = null;
+    } else {
+      const flag = body.flag.trim().toUpperCase();
+      if (!/^[A-Z]{2}$/.test(flag)) {
+        return { error: 'La bandera debe ser un código de país de 2 letras' };
+      }
+      updates.flag = flag;
+    }
+  }
+
+  if (body.crew_capacity !== undefined) {
+    if (body.crew_capacity === null || body.crew_capacity === '') {
+      updates.crew_capacity = null;
+    } else {
+      const crew = Number(body.crew_capacity);
+      if (!Number.isInteger(crew) || crew < 1 || crew > 50) {
+        return { error: 'La tripulación debe ser un número entre 1 y 50' };
+      }
+      updates.crew_capacity = crew;
+    }
+  }
+
+  if (body.rating_system !== undefined) {
+    if (!isNonEmptyString(body.rating_system)) {
+      updates.rating_system = null;
+    } else if (
+      !(RATING_SYSTEMS as readonly string[]).includes(body.rating_system.trim())
+    ) {
+      return { error: 'Sistema de rating no válido' };
+    } else {
+      updates.rating_system = body.rating_system.trim();
+    }
+  }
+
+  if (body.rating_value !== undefined) {
+    if (body.rating_value === null || body.rating_value === '') {
+      updates.rating_value = null;
+    } else {
+      const value = Number(body.rating_value);
+      if (!Number.isFinite(value) || value < 0 || value > 99999) {
+        return { error: 'El rating debe ser un número positivo' };
+      }
+      updates.rating_value = value;
+    }
+  }
+
+  // El valor de rating no significa nada sin saber de qué sistema es.
+  const resultingSystem =
+    updates.rating_system !== undefined
+      ? updates.rating_system
+      : currentRatingSystem;
+  if (updates.rating_value != null && !resultingSystem) {
+    return { error: 'Elegí el sistema de rating antes de cargar el valor' };
+  }
+  // Si se borra el sistema, el valor huérfano se va con él.
+  if (updates.rating_system === null) updates.rating_value = null;
+
+  return { updates };
+}
 
 /** Devuelve el barco si existe; responde 404/403 y devuelve null si no aplica. */
 async function findOwnedBoat(
@@ -19,7 +164,7 @@ async function findOwnedBoat(
 ) {
   const { data: boat, error } = await supabaseAdmin
     .from('boats')
-    .select('id, owner_id')
+    .select('id, owner_id, rating_system')
     .eq('id', boatId)
     .maybeSingle();
 
@@ -51,6 +196,11 @@ router.post(
       return res.status(400).json({ error: 'La categoría es obligatoria' });
     }
 
+    const details = parseBoatDetails(req.body ?? {});
+    if (details.error) {
+      return res.status(400).json({ error: details.error });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('boats')
       .insert({
@@ -59,6 +209,7 @@ router.post(
         category: category.trim(),
         sail_number: isNonEmptyString(sail_number) ? sail_number.trim() : null,
         photo_url: isNonEmptyString(photo_url) ? photo_url : null,
+        ...details.updates,
       })
       .select(BOAT_WITH_OWNER)
       .single();
@@ -152,8 +303,8 @@ router.get(
 );
 
 /**
- * PUT /api/boats/:id — solo el owner. Edita name, sail_number,
- * category y photo_url.
+ * PUT /api/boats/:id — solo el owner. Edita los datos básicos
+ * (name, sail_number, category, photo_url) y la ficha ampliada.
  */
 router.put(
   '/:id',
@@ -185,6 +336,12 @@ router.put(
     if (photo_url !== undefined) {
       updates.photo_url = isNonEmptyString(photo_url) ? photo_url : null;
     }
+
+    const details = parseBoatDetails(req.body ?? {}, boat.rating_system);
+    if (details.error) {
+      return res.status(400).json({ error: details.error });
+    }
+    Object.assign(updates, details.updates);
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No hay campos para actualizar' });
