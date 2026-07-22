@@ -106,6 +106,75 @@ export interface UserSearchResult {
   avatar_url: string | null;
 }
 
+export type ClassifiedCategory = 'tripulante' | 'profesor' | 'barco' | 'otro';
+export type ClassifiedRequirementType =
+  | 'sailing_class'
+  | 'experience_level'
+  | 'role'
+  | 'language'
+  | 'availability';
+
+export interface ClassifiedRequirement {
+  id?: string;
+  classified_id?: string;
+  requirement_type: ClassifiedRequirementType;
+  requirement_value: string;
+}
+
+export interface ClassifiedProfile {
+  id: string;
+  username: string;
+  name: string | null;
+  avatar_url: string | null;
+  bio?: string | null;
+  sailing_class?: string | null;
+  usual_role?: string | null;
+  location?: string | null;
+}
+
+export interface Classified {
+  id: string;
+  author_id: string;
+  category: ClassifiedCategory;
+  title: string;
+  description: string;
+  location: string;
+  location_worldwide: boolean;
+  status: 'active' | 'expired' | 'archived';
+  created_at: string;
+  expires_at: string;
+  renewed_at: string | null;
+  views_count: number;
+  contact_email: string | null;
+  contact_phone: string | null;
+  author?: ClassifiedProfile | null;
+  requirements: ClassifiedRequirement[];
+  requirement_count?: number;
+  requirement_summary?: string[];
+  interest_count?: number;
+  is_interested?: boolean;
+  interests?: ClassifiedInterest[];
+}
+
+export interface ClassifiedInterest {
+  id: string;
+  classified_id?: string;
+  user_id: string;
+  message: string | null;
+  created_at: string;
+  user?: ClassifiedProfile | null;
+}
+
+export interface ClassifiedMatch {
+  id: string;
+  classified_id: string;
+  matched_user_id: string;
+  match_score: number;
+  created_at: string;
+  viewed_at: string | null;
+  user: ClassifiedProfile | null;
+}
+
 // ── Administración ──────────────────────────────────────────
 
 export type AccountType = 'sailor' | 'club' | 'federation';

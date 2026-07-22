@@ -37,7 +37,7 @@ export function buttonClasses(
 ): string {
   return [
     'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition',
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-navy-400 focus-visible:ring-offset-1',
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-water-600 focus-visible:ring-offset-2',
     'disabled:cursor-not-allowed disabled:opacity-60',
     VARIANTS[variant],
     SIZES[size],

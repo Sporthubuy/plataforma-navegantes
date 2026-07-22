@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!userId) {
       localStorage.removeItem(TOKEN_KEY);
-      setLoading(false);
+      queueMicrotask(() => setLoading(false));
       return;
     }
 

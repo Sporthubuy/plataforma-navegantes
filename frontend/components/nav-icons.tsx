@@ -74,6 +74,35 @@ export function FlagIcon({ active, className = 'h-6 w-6' }: IconProps) {
   );
 }
 
+export function ClassifiedIcon({ active, className = 'h-6 w-6' }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={active ? 2.4 : 1.8}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 19V5h16v14M4 8h16M8 12h8M8 16h5" />
+    </svg>
+  );
+}
+
+export function MoreIcon({ className = 'h-6 w-6' }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <circle cx="5" cy="12" r="1.7" />
+      <circle cx="12" cy="12" r="1.7" />
+      <circle cx="19" cy="12" r="1.7" />
+    </svg>
+  );
+}
+
 export function ShieldIcon({ active, className = 'h-6 w-6' }: IconProps) {
   return (
     <svg

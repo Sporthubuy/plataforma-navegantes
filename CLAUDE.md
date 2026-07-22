@@ -80,6 +80,16 @@ Modelo estándar de la vela (respetarlo tal cual):
 - La inscripción la hace el **owner** del barco; puede **retirarse** (`status='withdrawn'`).
 - El **historial de regatas** de un navegante (estilo LinkedIn) alimenta la sección de logros del perfil: `GET /api/users/:id/regatta-history`.
 
+## Sistema de clasificados (alcance actual)
+
+- Los **clasificados** (`classifieds`) permiten publicar búsquedas u ofertas de `tripulante`, `profesor`, `barco` u `otro`, con título, descripción y ubicación. `location_worldwide` indica si el anuncio no está limitado a una zona.
+- Cada clasificado vence automáticamente a los **30 días** mediante `expires_at`. Sus estados son `active`, `expired` y `archived`; `archived` significa que el autor lo archivó manualmente antes del vencimiento. `renewed_at` registra la última renovación.
+- Los requisitos se modelan en `classified_requirements`, sin columnas específicas por tipo: cada fila tiene `requirement_type` (`sailing_class`, `experience_level`, `role`, `language` o `availability`) y `requirement_value`. No se puede repetir el mismo tipo y valor dentro de un clasificado.
+- El matching genera sugerencias en `classified_matches`, con un `match_score` de 0 a 100, y garantiza una sola sugerencia por usuario y clasificado. El cálculo debe usar los datos náuticos del perfil (`sailing_class`, `usual_role` y, cuando exista, `language`) y otros criterios definidos por el backend.
+- Un usuario puede expresar interés una sola vez por clasificado mediante `classified_interests`, opcionalmente con un mensaje. El autor puede leer quién se interesó; el interesado puede leer su propio registro.
+- Lectura pública: solo clasificados activos y sus requisitos. Los clasificados vencidos o archivados, sus requisitos, intereses y matches quedan limitados por RLS a los perfiles autorizados. Las escrituras de requisitos y matches se realizan exclusivamente desde el backend con service role; la autoridad siempre es el backend.
+- La función `public.expire_classifieds()` marca como `expired` los anuncios activos cuyo `expires_at` ya pasó. El backend debe invocarla al consultar el listado y, cuando Supabase Cron esté configurado, también una vez por noche.
+
 ## Convenciones
 
 - **Puertos:** backend en `3001`, frontend en `3000`.

@@ -47,12 +47,9 @@ function InviteModal({
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const q = query.trim().replace(/^@/, '');
-    if (!q) {
-      setResults([]);
-      return;
-    }
-    setSearching(true);
+    if (!q) return;
     debounceRef.current = setTimeout(() => {
+      setSearching(true);
       api
         .get('/api/users/search', { params: { q } })
         .then((res) => setResults(res.data.users))

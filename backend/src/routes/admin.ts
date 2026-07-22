@@ -636,4 +636,16 @@ router.delete(
   })
 );
 
+/** POST /api/admin/classifieds/expire — requiere permiso de administración. */
+router.post(
+  '/classifieds/expire',
+  requireAuth,
+  requirePermission('users.grant_permissions'),
+  asyncHandler(async (_req, res) => {
+    const { data, error } = await supabaseAdmin.rpc('expire_classifieds');
+    if (error) throw error;
+    return res.json({ expired_count: data ?? 0 });
+  })
+);
+
 export default router;

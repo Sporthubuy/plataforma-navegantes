@@ -208,7 +208,6 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!user) return;
-    setFetching(true);
     fetchPage(0)
       .then((data) => {
         setPosts(data.posts);

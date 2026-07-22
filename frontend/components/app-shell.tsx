@@ -13,6 +13,8 @@ import {
   ShieldIcon,
   AnchorIcon,
   FlagIcon,
+  ClassifiedIcon,
+  MoreIcon,
 } from '@/components/nav-icons';
 
 type NavItem = {
@@ -35,10 +37,7 @@ function useNavItems(): NavItem[] {
   const [pending, setPending] = useState(0);
 
   useEffect(() => {
-    if (!user) {
-      setPending(0);
-      return;
-    }
+    if (!user) return;
     api
       .get('/api/crew/invitations')
       .then((res) => setPending(res.data.invitations.length))
@@ -48,6 +47,7 @@ function useNavItems(): NavItem[] {
   return [
     { href: '/home', label: 'Home', icon: HomeIcon },
     { href: '/regattas', label: 'Regatas', icon: FlagIcon },
+    { href: '/classifieds', label: 'Clasificados', icon: ClassifiedIcon },
     { href: '/boats', label: 'Barcos', icon: BoatIcon },
     { href: '/invitations', label: 'Alertas', icon: BellIcon, badge: pending },
     ...(isAdmin
@@ -80,13 +80,15 @@ function Sidebar({ items }: { items: NavItem[] }) {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-20 hidden w-[var(--sidebar-width)] flex-col border-r border-navy-100 bg-white lg:flex">
-      <div className="flex h-16 items-center px-6">
-        <Link href="/home" className="text-xl font-bold text-navy-900">
-          ⚓ Navegantes
+      <div className="flex h-20 items-center px-6">
+        <Link href="/home" className="flex items-center gap-3 text-lg font-bold tracking-tight text-navy-950">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-navy-900 text-base text-white">⚓</span>
+          Navegantes
         </Link>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
+      <nav className="flex flex-1 flex-col gap-1 px-3 py-3">
+        <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-navy-400">Explorar</p>
         {items.map(({ href, label, icon: Icon, badge }) => {
           const active = isActive(pathname, href);
           return (
@@ -95,8 +97,8 @@ function Sidebar({ items }: { items: NavItem[] }) {
               href={href}
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
                 active
-                  ? 'bg-navy-800 text-white'
-                  : 'text-navy-600 hover:bg-navy-50'
+                  ? 'bg-navy-900 text-white shadow-sm'
+                  : 'text-navy-600 hover:bg-water-50 hover:text-water-600'
               }`}
             >
               <span className="relative">
@@ -147,18 +149,45 @@ function Sidebar({ items }: { items: NavItem[] }) {
 /** Bottom-nav fija — solo en móvil/tablet (< lg). */
 function BottomNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const primaryItems = items.slice(0, 4);
+  const secondaryItems = items.slice(4);
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-navy-100 bg-white/95 pb-safe backdrop-blur lg:hidden">
-      <div className="mx-auto flex h-16 max-w-2xl items-center justify-around px-2">
-        {items.map(({ href, label, icon: Icon, badge }) => {
+    <>
+      {isMoreOpen && (
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          className="fixed inset-0 z-30 bg-navy-950/25 lg:hidden"
+          onClick={() => setIsMoreOpen(false)}
+        />
+      )}
+      {isMoreOpen && (
+        <div className="fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 rounded-2xl border border-navy-100 bg-white p-2 shadow-xl lg:hidden">
+          {secondaryItems.map(({ href, label, icon: Icon, badge }) => (
+            <Link
+              key={href}
+              href={href}
+              onClick={() => setIsMoreOpen(false)}
+              className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-navy-700 hover:bg-water-50"
+            >
+              <span className="relative"><Icon className="h-5 w-5" /><Badge value={badge ?? 0} /></span>
+              {label}
+            </Link>
+          ))}
+        </div>
+      )}
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-navy-100 bg-white/95 pb-safe shadow-[0_-8px_24px_rgba(20,38,61,0.06)] backdrop-blur lg:hidden">
+        <div className="mx-auto flex h-16 max-w-2xl items-center justify-around px-1">
+        {primaryItems.map(({ href, label, icon: Icon, badge }) => {
           const active = isActive(pathname, href);
           return (
             <Link
               key={href}
               href={href}
               className={`flex min-w-[3rem] flex-col items-center gap-0.5 px-2 py-1 text-xs font-medium ${
-                active ? 'text-navy-800' : 'text-navy-400 hover:text-navy-600'
+                active ? 'text-water-600' : 'text-navy-400 hover:text-navy-700'
               }`}
             >
               <span className="relative">
@@ -169,8 +198,18 @@ function BottomNav({ items }: { items: NavItem[] }) {
             </Link>
           );
         })}
-      </div>
-    </nav>
+          <button
+            type="button"
+            onClick={() => setIsMoreOpen((current) => !current)}
+            className={`focus-ring flex min-w-[3.5rem] flex-col items-center gap-0.5 px-1 py-1 text-[11px] font-semibold ${isMoreOpen ? 'text-water-600' : 'text-navy-400'}`}
+            aria-expanded={isMoreOpen}
+          >
+            <MoreIcon active={isMoreOpen} />
+            Más
+          </button>
+        </div>
+      </nav>
+    </>
   );
 }
 

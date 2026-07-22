@@ -10,6 +10,7 @@ import boatsRouter from './routes/boats';
 import crewRouter from './routes/crew';
 import adminRouter from './routes/admin';
 import regattasRouter from './routes/regattas';
+import classifiedsRouter from './routes/classifieds';
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use('/api/boats', boatsRouter);
 app.use('/api/crew', crewRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/regattas', regattasRouter);
+app.use('/api/classifieds', classifiedsRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
