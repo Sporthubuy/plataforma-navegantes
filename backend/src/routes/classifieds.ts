@@ -261,6 +261,58 @@ router.get(
   })
 );
 
+/**
+ * GET /api/classifieds/matches/mine — requiere auth.
+ * Clasificados que matchean con el perfil del usuario, de mayor a menor
+ * score. Alimenta el widget de sugerencias de la home.
+ */
+router.get(
+  '/matches/mine',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const minScore = Number(req.query.min_score);
+    const threshold = Number.isFinite(minScore) ? minScore : 50;
+    const rawLimit = Number(req.query.limit);
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 20) : 5;
+
+    const { data, error } = await supabaseAdmin
+      .from('classified_matches')
+      .select('id, classified_id, match_score, viewed_at, created_at')
+      .eq('matched_user_id', req.user!.id)
+      .gte('match_score', threshold)
+      .order('match_score', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+
+    const rows = data ?? [];
+    const ids = rows.map((m) => m.classified_id);
+    if (ids.length === 0) return res.json({ matches: [] });
+
+    // Solo se sugieren avisos vigentes.
+    const { data: classifieds } = await supabaseAdmin
+      .from('classifieds')
+      .select(CLASSIFIED_FIELDS)
+      .in('id', ids)
+      .eq('status', 'active');
+
+    const byId = new Map(
+      ((classifieds ?? []) as Array<Record<string, unknown>>).map((c) => [
+        c.id as string,
+        c,
+      ])
+    );
+
+    const matches = rows
+      .filter((m) => byId.has(m.classified_id))
+      .map((m) => ({
+        ...m,
+        classified: byId.get(m.classified_id),
+      }));
+
+    return res.json({ matches });
+  })
+);
+
 router.get(
   '/:id/matches',
   requireAuth,
