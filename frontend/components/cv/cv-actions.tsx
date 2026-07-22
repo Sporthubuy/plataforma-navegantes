@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Download, Mail } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { api, getApiError } from '@/lib/api';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
@@ -120,9 +120,8 @@ function ContactModal({
 }
 
 /**
- * Acciones del CV. "Descargar" usa la impresión del navegador (que
- * permite guardar como PDF) en vez de generar el archivo en el cliente:
- * sin dependencias nuevas y respeta el formato que el usuario elija.
+ * Acciones del perfil. Solo contactar: el perfil no se exporta, todo
+ * lo que hay que saber de alguien se lee acá.
  */
 export function CvActions({
   profile,
@@ -135,18 +134,10 @@ export function CvActions({
 
   return (
     <>
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row print:hidden">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => window.print()}
-          className="flex-1"
-        >
-          <Download className="h-4 w-4" />
-          Descargar CV
-        </Button>
-
-        {!isOwner && (
+      {/* El perfil es el lugar donde está todo: no se descarga ni se
+          exporta, se mira acá. */}
+      {!isOwner && (
+        <div className="mt-4 flex">
           <Button
             size="sm"
             onClick={() => setContactOpen(true)}
@@ -155,8 +146,8 @@ export function CvActions({
             <Mail className="h-4 w-4" />
             Contactar
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {contactOpen && (
         <ContactModal profile={profile} onClose={() => setContactOpen(false)} />

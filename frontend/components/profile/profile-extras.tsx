@@ -1,4 +1,5 @@
 import { formatLocation } from '@/lib/geo';
+import { ageFrom, formatBirthDate } from '@/lib/format';
 import type { ProfileStats, SailorRank, User } from '@/lib/types';
 import { SAILOR_RANK_LABEL, type SailorRankName } from '@/lib/types';
 
@@ -105,12 +106,41 @@ function WebIcon() {
 
 // ── Datos náuticos (solo los que tienen valor) ──────────────────────
 
+function BirthdayIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4 shrink-0 text-navy-400"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" />
+      <path d="M4 15a2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0 2 2 0 0 0 4 0v-2a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2Z" />
+      <path d="M12 8V6M9 8V6.5M15 8V6.5" />
+    </svg>
+  );
+}
+
 export function NauticalData({ profile }: { profile: User }) {
   const rows = [
     { icon: <ClubIcon />, value: profile.club?.name ?? null },
     { icon: <ClassIcon />, value: profile.sailing_class },
     { icon: <RoleIcon />, value: profile.usual_role },
     { icon: <LocationIcon />, value: formatLocation(profile.city, profile.country) },
+    // La edad acompaña a la fecha: es lo que se lee de un vistazo.
+    {
+      icon: <BirthdayIcon />,
+      value: profile.birth_date
+        ? `${formatBirthDate(profile.birth_date)}${
+            ageFrom(profile.birth_date) !== null
+              ? ` · ${ageFrom(profile.birth_date)} años`
+              : ''
+          }`
+        : null,
+    },
   ].filter((r) => r.value);
 
   if (rows.length === 0) return null;

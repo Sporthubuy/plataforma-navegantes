@@ -28,6 +28,8 @@ export interface User {
   bio: string | null;
   avatar_url: string | null;
   created_at?: string;
+  /** Dato personal: solo llega cuando el perfil es visible. */
+  birth_date?: string | null;
   // Datos náuticos
   sailing_class?: string | null;
   usual_role?: string | null;

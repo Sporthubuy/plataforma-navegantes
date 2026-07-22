@@ -49,6 +49,7 @@ interface ProfileForm {
   username: string;
   name: string;
   bio: string;
+  birthDate: string;
   clubId: string | null;
   classSelect: string;
   classCustom: string;
@@ -69,7 +70,7 @@ interface ProfileForm {
 }
 
 const EMPTY_FORM: ProfileForm = {
-  username: '', name: '', bio: '', clubId: null,
+  username: '', name: '', bio: '', birthDate: '', clubId: null,
   classSelect: '', classCustom: '', roleSelect: '', roleCustom: '',
   country: null, city: null, headline: '', professionalBio: '',
   specialties: '', experienceYears: '', seekingRole: '',
@@ -135,6 +136,7 @@ export default function ProfilePage() {
       ? shown.usual_role : shown.usual_role ? 'Otro' : '';
     setForm({
       username: shown.username, name: shown.name ?? '', bio: shown.bio ?? '',
+      birthDate: shown.birth_date ?? '',
       clubId: shown.club_id ?? null, classSelect: knownClass,
       classCustom: knownClass === 'Otra' ? (shown.sailing_class ?? '') : '',
       roleSelect: knownRole, roleCustom: knownRole === 'Otro' ? (shown.usual_role ?? '') : '',
@@ -180,6 +182,7 @@ export default function ProfilePage() {
     try {
       const res = await api.put(`/api/users/profile/${user!.id}`, {
         username: normalized, name: form.name.trim() || null, bio: form.bio.trim() || null,
+        birth_date: form.birthDate || null,
         club_id: form.clubId, sailing_class: sailingClass || null, usual_role: usualRole || null,
         country: form.country, city: form.city, headline: form.headline.trim() || null,
         professional_bio: form.professionalBio.trim() || null,
@@ -281,6 +284,14 @@ export default function ProfilePage() {
                     </Field>
                     <Field label="Nombre"><Input value={form.name} onChange={(e) => set({ name: e.target.value })} /></Field>
                     <Field label="Bio"><Textarea value={form.bio} onChange={(e) => set({ bio: e.target.value })} rows={3} placeholder="Cuéntanos sobre ti y tu barco…" /></Field>
+                    <Field label="Fecha de nacimiento" hint="Solo la ven quienes pueden ver tu perfil.">
+                      <Input
+                        type="date"
+                        value={form.birthDate}
+                        max={new Date().toISOString().slice(0, 10)}
+                        onChange={(e) => set({ birthDate: e.target.value })}
+                      />
+                    </Field>
 
                     <fieldset className="flex flex-col gap-4 border-t border-navy-100 pt-4">
                       <legend className="text-sm font-bold text-navy-900">Perfil profesional</legend>

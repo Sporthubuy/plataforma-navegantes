@@ -17,8 +17,8 @@ const router = Router();
 
 const EXTRA_FIELDS =
   'sailing_class, usual_role, country, city, club_id, club:clubs!profiles_club_id_fkey(id, name, short_name, country, city), instagram, facebook, youtube, website';
-const PROFILE_FIELDS = `id, username, name, bio, avatar_url, created_at, verified_badge, public_profile, ${EXTRA_FIELDS}`;
-const ME_FIELDS = `id, username, name, bio, avatar_url, created_at, account_type, status, verified_badge, public_profile, ${EXTRA_FIELDS}`;
+const PROFILE_FIELDS = `id, username, name, bio, avatar_url, created_at, birth_date, verified_badge, public_profile, ${EXTRA_FIELDS}`;
+const ME_FIELDS = `id, username, name, bio, avatar_url, created_at, birth_date, account_type, status, verified_badge, public_profile, ${EXTRA_FIELDS}`;
 
 const SUMMARY_FIELDS =
   'user_id, headline, professional_bio, specialties, experience_years, seeking_role, preferred_classes, availability_status, updated_at';
@@ -561,6 +561,27 @@ router.put(
     if (name !== undefined) updates.name = name;
     if (bio !== undefined) updates.bio = bio;
     if (avatar_url !== undefined) updates.avatar_url = avatar_url;
+
+    const birthDate = (req.body ?? {}).birth_date;
+    if (birthDate !== undefined) {
+      const raw = birthDate;
+      if (raw === null || raw === '') {
+        updates.birth_date = null;
+      } else if (
+        typeof raw !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(raw) ||
+        Number.isNaN(Date.parse(raw))
+      ) {
+        return res.status(422).json({ error: 'La fecha de nacimiento no es válida' });
+      } else if (raw > new Date().toISOString().slice(0, 10)) {
+        // El CHECK de la base no puede mirar la fecha de hoy; acá sí.
+        return res
+          .status(422)
+          .json({ error: 'La fecha de nacimiento no puede ser futura' });
+      } else {
+        updates.birth_date = raw;
+      }
+    }
 
     // Visibilidad del perfil: el dueño decide si su CV náutico es público.
     if (req.body.public_profile !== undefined) {

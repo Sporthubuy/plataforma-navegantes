@@ -99,3 +99,28 @@ export const ACCOUNT_TYPE_LABEL: Record<string, string> = {
   club: 'Club',
   federation: 'Federación',
 };
+
+/** "12 de marzo de 1990". Vacío si no hay fecha. */
+export function formatBirthDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('es-UY', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+/** Años cumplidos a partir de la fecha de nacimiento. */
+export function ageFrom(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const born = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(born.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - born.getFullYear();
+  // Todavía no cumplió este año.
+  const beforeBirthday =
+    today.getMonth() < born.getMonth() ||
+    (today.getMonth() === born.getMonth() && today.getDate() < born.getDate());
+  if (beforeBirthday) age -= 1;
+  return age >= 0 && age < 130 ? age : null;
+}
