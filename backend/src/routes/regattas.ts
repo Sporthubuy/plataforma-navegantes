@@ -8,6 +8,7 @@ import { sanitizeLocation } from '../lib/location';
 import { asyncHandler } from '../lib/async-handler';
 import { isNonEmptyString } from '../lib/validation';
 import { computeStandings, penaltyPoints } from '../lib/scoring';
+import { syncClassAchievementsSafely } from '../lib/achievements';
 
 const router = Router();
 
@@ -793,6 +794,11 @@ router.put(
       .select(CLASS_FIELDS)
       .single();
     if (error) throw error;
+
+    // Al cerrar la clase ya hay posición final: se generan los logros
+    // del CV de cada navegante. No bloquea la respuesta.
+    if (status === 'finished') syncClassAchievementsSafely(current.id);
+
     return res.json({ regatta_class: data });
   })
 );
@@ -980,6 +986,17 @@ router.put(
       .update({ status: 'completed', sailed_at: new Date().toISOString() })
       .eq('id', race.id);
     if (raceError) throw raceError;
+
+    // Si la clase ya estaba cerrada, corregir un resultado cambia la
+    // posición final: hay que rehacer los logros.
+    const { data: cls } = await supabaseAdmin
+      .from('regatta_classes')
+      .select('status')
+      .eq('id', race.regatta_class_id)
+      .maybeSingle();
+    if (cls?.status === 'finished') {
+      syncClassAchievementsSafely(race.regatta_class_id);
+    }
 
     return res.json({ updated: rows.length });
   })

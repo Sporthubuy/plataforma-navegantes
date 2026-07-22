@@ -7,6 +7,7 @@ export const PERMISSION_CATALOG: Record<string, string> = {
   'users.suspend': 'Suspender y reactivar cuentas de usuario',
   'users.delete': 'Eliminar cuentas de usuario',
   'users.grant_permissions': 'Otorgar y revocar permisos de administración',
+  'users.verify': 'Verificar credenciales y perfiles de navegantes',
   'boats.view_all': 'Ver todos los barcos de la plataforma',
   'boats.edit_all': 'Editar y eliminar cualquier barco',
   'boats.create_all': 'Crear barcos a nombre de cualquier usuario',

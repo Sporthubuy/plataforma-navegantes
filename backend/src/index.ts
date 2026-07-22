@@ -12,6 +12,8 @@ import adminRouter from './routes/admin';
 import regattasRouter from './routes/regattas';
 import classifiedsRouter from './routes/classifieds';
 import clubsRouter from './routes/clubs';
+import cvRouter from './routes/cv';
+import searchRouter from './routes/search';
 
 const app = express();
 
@@ -27,6 +29,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/users', cvRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/posts', postsRouter);
 app.use('/api/boats', boatsRouter);
@@ -35,6 +38,7 @@ app.use('/api/admin', adminRouter);
 app.use('/api/regattas', regattasRouter);
 app.use('/api/classifieds', classifiedsRouter);
 app.use('/api/clubs', clubsRouter);
+app.use('/api/search', searchRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });

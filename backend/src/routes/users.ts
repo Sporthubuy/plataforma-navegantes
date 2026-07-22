@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
+import { config } from '../config';
 import { supabaseAdmin } from '../lib/supabase';
 import { requireAuth } from '../middleware/auth';
 import { asyncHandler } from '../lib/async-handler';
@@ -8,13 +10,165 @@ import { getUserPermissions } from '../middleware/permissions';
 import { sanitizeProfileExtras } from '../lib/profile-fields';
 import { sanitizeLocation } from '../lib/location';
 import { computeStandings } from '../lib/scoring';
+import { CREDENTIAL_FIELDS, ACHIEVEMENT_FIELDS } from './cv';
 
 const router = Router();
 
 const EXTRA_FIELDS =
   'sailing_class, usual_role, country, city, club_id, club:clubs!profiles_club_id_fkey(id, name, short_name, country, city), instagram, facebook, youtube, website';
-const PROFILE_FIELDS = `id, username, name, bio, avatar_url, created_at, ${EXTRA_FIELDS}`;
-const ME_FIELDS = `id, username, name, bio, avatar_url, created_at, account_type, status, ${EXTRA_FIELDS}`;
+const PROFILE_FIELDS = `id, username, name, bio, avatar_url, created_at, verified_badge, public_profile, ${EXTRA_FIELDS}`;
+const ME_FIELDS = `id, username, name, bio, avatar_url, created_at, account_type, status, verified_badge, public_profile, ${EXTRA_FIELDS}`;
+
+const SUMMARY_FIELDS =
+  'user_id, headline, professional_bio, specialties, experience_years, seeking_role, preferred_classes, availability_status, updated_at';
+const STATS_FIELDS =
+  'user_id, total_regattas_sailed, total_1st_places, total_podiums, best_class, sailing_since_year, last_regatta_date, verified_credentials_count';
+
+const SEEKING_ROLES = ['tripulante', 'entrenador', 'ambos', 'socio_de_regata'];
+const AVAILABILITY = ['available', 'not_available', 'selective'];
+
+/** Contadores en cero: un perfil sin logros no tiene fila todavía. */
+const EMPTY_STATS = {
+  total_regattas_sailed: 0,
+  total_1st_places: 0,
+  total_podiums: 0,
+  best_class: null,
+  sailing_since_year: null,
+  last_regatta_date: null,
+  verified_credentials_count: 0,
+};
+
+/** User id si viene un Bearer token válido; null si la lectura es anónima. */
+function optionalUserId(req: import('express').Request): string | null {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) return null;
+  try {
+    const payload = jwt.verify(header.slice(7).trim(), config.jwtSecret) as {
+      sub?: string;
+    };
+    return payload.sub ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Valida los campos del resumen profesional presentes en el body. */
+function parseSummary(
+  body: Record<string, unknown>
+):
+  | { updates: Record<string, unknown> }
+  | { error: { status: number; message: string } } {
+  const updates: Record<string, unknown> = {};
+
+  if (body.headline !== undefined) {
+    const value = typeof body.headline === 'string' ? body.headline.trim() : '';
+    if (value.length > 160) {
+      return { error: { status: 422, message: 'El titular no puede superar los 160 caracteres' } };
+    }
+    updates.headline = value || null;
+  }
+
+  if (body.professional_bio !== undefined) {
+    const value =
+      typeof body.professional_bio === 'string' ? body.professional_bio.trim() : '';
+    if (value.length > 2000) {
+      return { error: { status: 422, message: 'La bio profesional no puede superar los 2000 caracteres' } };
+    }
+    updates.professional_bio = value || null;
+  }
+
+  // Arrays de texto: se limpian, se recortan y se sacan duplicados.
+  for (const field of ['specialties', 'preferred_classes'] as const) {
+    if (body[field] === undefined) continue;
+    if (!Array.isArray(body[field])) {
+      return { error: { status: 422, message: `${field} debe ser una lista` } };
+    }
+    const items = (body[field] as unknown[])
+      .filter((v): v is string => typeof v === 'string')
+      .map((v) => v.trim().slice(0, 50))
+      .filter(Boolean);
+    if (items.length > 20) {
+      return { error: { status: 422, message: 'Máximo 20 elementos por lista' } };
+    }
+    updates[field] = [...new Set(items)];
+  }
+
+  if (body.experience_years !== undefined) {
+    if (body.experience_years === null || body.experience_years === '') {
+      updates.experience_years = null;
+    } else {
+      const years = Number(body.experience_years);
+      if (!Number.isInteger(years) || years < 0 || years > 90) {
+        return { error: { status: 422, message: 'Los años de experiencia deben estar entre 0 y 90' } };
+      }
+      updates.experience_years = years;
+    }
+  }
+
+  if (body.seeking_role !== undefined) {
+    const value = typeof body.seeking_role === 'string' ? body.seeking_role.trim() : '';
+    if (value && !SEEKING_ROLES.includes(value)) {
+      return { error: { status: 422, message: 'Rol buscado inválido' } };
+    }
+    updates.seeking_role = value || null;
+  }
+
+  if (body.availability_status !== undefined) {
+    const value =
+      typeof body.availability_status === 'string' ? body.availability_status.trim() : '';
+    if (!AVAILABILITY.includes(value)) {
+      return { error: { status: 422, message: 'Estado de disponibilidad inválido' } };
+    }
+    updates.availability_status = value;
+  }
+
+  return { updates };
+}
+
+/**
+ * Arma el CV de un perfil. `visible` es false cuando el perfil es
+ * privado y quien mira no es el dueño: ahí se devuelven solo los datos
+ * de presentación, sin historial ni credenciales.
+ */
+async function loadCv(userId: string, visible: boolean) {
+  const [summary, stats, credentials, achievements] = await Promise.all([
+    supabaseAdmin
+      .from('professional_summary')
+      .select(SUMMARY_FIELDS)
+      .eq('user_id', userId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('achievement_stats')
+      .select(STATS_FIELDS)
+      .eq('user_id', userId)
+      .maybeSingle(),
+    visible
+      ? supabaseAdmin
+          .from('credentials')
+          .select(CREDENTIAL_FIELDS)
+          .eq('user_id', userId)
+          .order('is_verified', { ascending: false })
+          .order('issue_date', { ascending: false, nullsFirst: false })
+      : Promise.resolve({ data: [] }),
+    visible
+      ? supabaseAdmin
+          .from('regatta_achievements')
+          .select(ACHIEVEMENT_FIELDS, { count: 'exact' })
+          .eq('user_id', userId)
+          .order('regatta_date', { ascending: false })
+          .limit(10)
+      : Promise.resolve({ data: [], count: 0 }),
+  ]);
+
+  return {
+    professional_summary: summary.data ?? null,
+    achievement_stats: stats.data ?? { user_id: userId, ...EMPTY_STATS },
+    credentials: credentials.data ?? [],
+    achievements: achievements.data ?? [],
+    achievements_total:
+      'count' in achievements ? (achievements.count ?? 0) : 0,
+  };
+}
 
 /** Quita el @ inicial (si lo escribieron) y normaliza a minúsculas. */
 export function normalizeUsername(value: string): string {
@@ -132,7 +286,12 @@ router.get(
     if (!data) {
       return res.status(404).json({ error: 'Perfil no encontrado' });
     }
-    return res.json({ profile: data });
+
+    // Un perfil privado solo se abre entero para su dueño.
+    const visible = data.public_profile || optionalUserId(req) === data.id;
+    const cv = await loadCv(data.id, visible);
+
+    return res.json({ profile: { ...data, ...cv }, visible });
   })
 );
 
@@ -387,6 +546,22 @@ router.put(
     }
     Object.assign(updates, extras.updates);
 
+    // Resumen profesional: vive en su propia tabla, se crea al vuelo la
+    // primera vez que el usuario lo completa.
+    const summary = parseSummary(req.body ?? {});
+    if ('error' in summary) {
+      return res.status(summary.error.status).json({ error: summary.error.message });
+    }
+    if (Object.keys(summary.updates).length > 0) {
+      const { error: summaryError } = await supabaseAdmin
+        .from('professional_summary')
+        .upsert(
+          { user_id: targetId, ...summary.updates },
+          { onConflict: 'user_id' }
+        );
+      if (summaryError) throw summaryError;
+    }
+
     // Ubicación y club de la lista.
     const location = await sanitizeLocation(req.body ?? {}, { withClub: true });
     if ('error' in location) {
@@ -397,7 +572,17 @@ router.put(
     Object.assign(updates, location.updates);
 
     if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ error: 'No hay campos para actualizar' });
+      // Puede haber venido solo el resumen profesional: eso ya se guardó.
+      const { data: unchanged } = await supabaseAdmin
+        .from('profiles')
+        .select(PROFILE_FIELDS)
+        .eq('id', targetId)
+        .maybeSingle();
+      if (!unchanged) {
+        return res.status(404).json({ error: 'Perfil no encontrado' });
+      }
+      const cv = await loadCv(targetId, true);
+      return res.json({ profile: { ...unchanged, ...cv } });
     }
 
     const { data, error } = await supabaseAdmin
@@ -416,7 +601,8 @@ router.put(
     if (!data) {
       return res.status(404).json({ error: 'Perfil no encontrado' });
     }
-    return res.json({ profile: data });
+    const cv = await loadCv(targetId, true);
+    return res.json({ profile: { ...data, ...cv } });
   })
 );
 

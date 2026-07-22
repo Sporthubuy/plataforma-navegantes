@@ -90,6 +90,27 @@ Modelo estándar de la vela (respetarlo tal cual):
 - Lectura pública: solo clasificados activos y sus requisitos. Los clasificados vencidos o archivados, sus requisitos, intereses y matches quedan limitados por RLS a los perfiles autorizados. Las escrituras de requisitos y matches se realizan exclusivamente desde el backend con service role; la autoridad siempre es el backend.
 - La función `public.expire_classifieds()` marca como `expired` los anuncios activos cuyo `expires_at` ya pasó. El backend debe invocarla al consultar el listado y, cuando Supabase Cron esté configurado, también una vez por noche.
 
+## Perfil como CV náutico (alcance actual)
+
+El perfil de navegante funciona como un CV profesional: además de los datos personales, expone experiencia verificable y sirve de base para que clubes y entrenadores encuentren talento.
+
+- **`professional_summary`** (una fila por usuario, PK = `user_id`): `headline` (una línea), `professional_bio`, `specialties[]`, `preferred_classes[]`, `experience_years`, `seeking_role` (`tripulante`/`entrenador`/`ambos`/`socio_de_regata`) y `availability_status` (`available`/`not_available`/`selective`).
+- **`credentials`**: títulos, certificaciones y experiencia (`instructor`, `coach`, `sailor_level`, `experience`, `other`) con emisor, fechas y link. `is_verified` **solo lo cambia** quien tenga el permiso `users.verify`: que el dueño no pueda autoverificarse es lo que le da valor al sello.
+- **`regatta_achievements`**: historial de logros. `is_manual=false` los genera la app y **tienen autoridad**; `is_manual=true` son históricos declarados por el navegante (regatas previas a la plataforma). Un logro manual nunca tiene `regatta_id`, y uno automático siempre lo tiene — hay un CHECK que lo garantiza. Los automáticos **no se pueden borrar** desde la API.
+- **`achievement_stats`**: contadores desnormalizados (regatas navegadas, 1ros, podios, mejor clase, año de inicio, credenciales verificadas) para rankings y búsqueda. **Nunca se escriben a mano**: los mantiene al día el trigger `refresh_achievement_stats`, que recalcula todo desde cero y es idempotente.
+- **`profiles.verified_badge`** (sello manual del admin) y **`profiles.public_profile`**. Con el perfil en privado, quien no sea el dueño ve solo la presentación (avatar, username, headline, especialidades): ni historial, ni credenciales, ni ubicación.
+
+### Sincronización de logros
+
+- Se dispara **al cerrar una CLASE** (`status` → `finished`), no en cada carga de resultados: antes de eso la posición cambia con cada manga. Si después se corrige un resultado de una clase ya cerrada, se vuelve a sincronizar.
+- Vive en **`backend/src/lib/achievements.ts`, no en un trigger de Postgres**, porque la posición final sale de `computeStandings` (Low Point + descartes + penalizaciones). Reimplementar eso en plpgsql sería mantener dos copias del código más delicado del sistema. Postgres solo agrega los contadores.
+- Cuenta al **dueño del barco y a su tripulación aceptada**: en un CV náutico, el proa que ganó también ganó.
+- Es **idempotente** por el índice único `(user_id, regatta_class_id)`.
+
+### Buscador de talento
+
+`GET /api/search?type=&class=&availability=&country=&city=&verified=` — parte de `professional_summary` (sin resumen cargado el navegante no se ofreció para nada), filtra solo perfiles públicos y activos, y ordena **verificados primero, después por regatas navegadas**. `seeking_role='ambos'` entra en todas las búsquedas por rol. Es la semilla del sistema de seguimiento y mensajería.
+
 ## Convenciones
 
 - **Puertos:** backend en `3001`, frontend en `3000`.
