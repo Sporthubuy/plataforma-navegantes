@@ -5,7 +5,7 @@ export function BoatCard({ boat }: { boat: MyBoat }) {
   return (
     <Link
       href={`/boats/${boat.id}`}
-      className="flex h-full items-center gap-4 rounded-2xl bg-white p-4 shadow-sm transition hover:shadow-md"
+      className="flex h-full items-center gap-4 rounded-xl border border-navy-100 bg-white p-4 transition hover:border-navy-200"
     >
       {boat.photo_url ? (
         // eslint-disable-next-line @next/next/no-img-element

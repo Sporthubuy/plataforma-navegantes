@@ -20,7 +20,12 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/input';
 import { EmptyState } from '@/components/empty-state';
 import { relativeTime } from '@/lib/format';
-import type { Conversation, ConversationThread } from '@/lib/types';
+import { useThreadSync } from '@/hooks/use-thread-sync';
+import type {
+  Conversation,
+  ConversationThread,
+  DirectMessage,
+} from '@/lib/types';
 
 /** Lista de conversaciones — la bandeja. */
 function Inbox({
@@ -291,6 +296,39 @@ function MessagesContent() {
     if (activeId) loadThread(activeId);
   }, [activeId, loadThread]);
 
+  const refreshInbox = useCallback(() => {
+    fetchInbox()
+      .then(setConversations)
+      .catch(() => undefined);
+  }, [fetchInbox]);
+
+  const refreshAll = () => {
+    if (activeId) loadThread(activeId);
+    refreshInbox();
+  };
+
+  // Mensajes nuevos del otro: se agregan al hilo sin recargarlo entero.
+  const appendMessages = useCallback(
+    (incoming: DirectMessage[]) => {
+      setThread((current) => {
+        if (!current) return current;
+        const known = new Set(current.messages.map((m) => m.id));
+        const fresh = incoming.filter((m) => !known.has(m.id));
+        if (fresh.length === 0) return current;
+        return { ...current, messages: [...current.messages, ...fresh] };
+      });
+      refreshInbox();
+    },
+    [refreshInbox]
+  );
+
+  const lastMessageAt =
+    thread && thread.messages.length > 0
+      ? thread.messages[thread.messages.length - 1].created_at
+      : null;
+
+  useThreadSync(activeId, lastMessageAt, appendMessages);
+
   if (loading || !user) {
     return (
       <AppShell>
@@ -299,12 +337,6 @@ function MessagesContent() {
     );
   }
 
-  const refreshAll = () => {
-    if (activeId) loadThread(activeId);
-    fetchInbox()
-      .then(setConversations)
-      .catch(() => undefined);
-  };
 
   return (
     <AppShell width="wide">

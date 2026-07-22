@@ -13,6 +13,7 @@ import regattasRouter from './routes/regattas';
 import classifiedsRouter from './routes/classifieds';
 import clubsRouter from './routes/clubs';
 import cvRouter from './routes/cv';
+import gamificationRouter from './routes/gamification';
 import searchRouter from './routes/search';
 import messagesRouter from './routes/messages';
 
@@ -31,6 +32,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', cvRouter);
+app.use('/api/users', gamificationRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/posts', postsRouter);
 app.use('/api/boats', boatsRouter);

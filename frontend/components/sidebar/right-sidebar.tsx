@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { LayoutGrid, X } from 'lucide-react';
 import { UpcomingRegattasWidget } from '@/components/widgets/upcoming-regattas-widget';
 import { ClassifiedMatchesWidget } from '@/components/widgets/classified-matches-widget';
+import { SuggestedSailorsWidget } from '@/components/widgets/suggested-sailors-widget';
 import { MyBoatsWidget } from '@/components/widgets/my-boats-widget';
 import { QuickAccessWidget } from '@/components/widgets/quick-access-widget';
 import { WeatherWidget } from '@/components/widgets/weather-widget';
@@ -20,6 +21,7 @@ function Widgets({ regattas, boats, pendingInvites, location }: SidebarData) {
   return (
     <div className="flex flex-col gap-4">
       <UpcomingRegattasWidget regattas={regattas} />
+      <SuggestedSailorsWidget />
       <ClassifiedMatchesWidget />
       <MyBoatsWidget boats={boats} />
       <WeatherWidget location={location} />

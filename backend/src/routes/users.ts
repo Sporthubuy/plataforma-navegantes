@@ -10,7 +10,8 @@ import { getUserPermissions } from '../middleware/permissions';
 import { sanitizeProfileExtras } from '../lib/profile-fields';
 import { sanitizeLocation } from '../lib/location';
 import { computeStandings } from '../lib/scoring';
-import { CREDENTIAL_FIELDS, ACHIEVEMENT_FIELDS } from './cv';
+import { CREDENTIAL_FIELDS, ACHIEVEMENT_FIELDS, WORK_FIELDS } from './cv';
+import { COMMUNITY_ACHIEVEMENT_FIELDS, getRank } from './gamification';
 
 const router = Router();
 
@@ -131,7 +132,7 @@ function parseSummary(
  * de presentación, sin historial ni credenciales.
  */
 async function loadCv(userId: string, visible: boolean) {
-  const [summary, stats, credentials, achievements] = await Promise.all([
+  const [summary, stats, credentials, achievements, work, community, rank] = await Promise.all([
     supabaseAdmin
       .from('professional_summary')
       .select(SUMMARY_FIELDS)
@@ -158,6 +159,25 @@ async function loadCv(userId: string, visible: boolean) {
           .order('regatta_date', { ascending: false })
           .limit(10)
       : Promise.resolve({ data: [], count: 0 }),
+    visible
+      ? supabaseAdmin
+          .from('work_experience')
+          .select(WORK_FIELDS)
+          .eq('user_id', userId)
+          .order('start_year', { ascending: false })
+          .order('start_month', { ascending: false })
+      : Promise.resolve({ data: [] }),
+    visible
+      ? supabaseAdmin
+          .from('community_achievements')
+          .select(COMMUNITY_ACHIEVEMENT_FIELDS)
+          .eq('user_id', userId)
+          .order('earned_at', { ascending: false })
+          .limit(20)
+      : Promise.resolve({ data: [] }),
+    // El rango siempre se devuelve: incluso un perfil privado muestra
+    // "Marinero · activo" en el header de presentación.
+    getRank(userId),
   ]);
 
   return {
@@ -167,6 +187,9 @@ async function loadCv(userId: string, visible: boolean) {
     achievements: achievements.data ?? [],
     achievements_total:
       'count' in achievements ? (achievements.count ?? 0) : 0,
+    work_experience: work.data ?? [],
+    community_achievements: community.data ?? [],
+    sailor_rank: rank,
   };
 }
 
@@ -538,6 +561,11 @@ router.put(
     if (name !== undefined) updates.name = name;
     if (bio !== undefined) updates.bio = bio;
     if (avatar_url !== undefined) updates.avatar_url = avatar_url;
+
+    // Visibilidad del perfil: el dueño decide si su CV náutico es público.
+    if (req.body.public_profile !== undefined) {
+      updates.public_profile = Boolean(req.body.public_profile);
+    }
 
     // Datos náuticos y redes (sanitizados).
     const extras = sanitizeProfileExtras(req.body ?? {});

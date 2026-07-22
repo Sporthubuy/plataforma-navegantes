@@ -1,47 +1,56 @@
 import Link from 'next/link';
-import { Trophy } from 'lucide-react';
+import { Trophy, ArrowRight } from 'lucide-react';
 import type { RegattaHistoryItem } from '@/lib/types';
+import { FeedItemShell } from './feed-item-shell';
+
+const TYPE_STYLE = {
+  label: 'Resultado',
+  badge: 'bg-sand-100 text-sand-700',
+};
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
-/** Resultado propio en una regata terminada. */
 export function AchievementCard({ item }: { item: RegattaHistoryItem }) {
   const podium = item.position != null && item.position <= 3;
   const medal = podium ? MEDAL[item.position! - 1] : null;
 
   return (
-    <article
-      className={`animate-[fadeIn_300ms_ease-out] rounded-xl border p-4 transition duration-150 hover:shadow-md md:p-5 ${
-        podium ? 'border-sand-700/25 bg-sand-100/50' : 'border-navy-100 bg-white'
-      }`}
+    <FeedItemShell
+      typeStyle={TYPE_STYLE}
+      actor={{
+        name: item.regatta_name,
+        headline: item.sailing_class,
+        avatar_url: null,
+      }}
     >
-      <div className="flex items-center gap-2 text-xs font-semibold text-sand-700">
-        <Trophy className="h-4 w-4" />
-        Tu resultado
-      </div>
-
-      <div className="mt-3 flex items-center gap-3">
-        <span className="text-3xl" aria-hidden="true">
-          {medal ?? '🏁'}
+      <div className="flex items-center gap-2">
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sand-100 text-base"
+          aria-hidden="true"
+        >
+          {medal ?? <Trophy className="h-4 w-4 text-navy-300" />}
         </span>
         <div className="min-w-0">
-          <p className="font-bold text-navy-900">
-            {item.position}º de {item.total_entries}
+          <p className="text-[15px] font-semibold text-navy-950">
+            {item.position != null && `${item.position}º`}
+            {item.total_entries ? (
+              <span className="ml-1 text-sm font-normal text-navy-500">de {item.total_entries}</span>
+            ) : null}
           </p>
           <p className="truncate text-xs text-navy-500">
-            Resultado final en{' '}
-            <span className="font-medium text-navy-700">{item.regatta_name}</span>{' '}
-            · {item.sailing_class}
+            {item.sailing_class}
+            {item.boat_name ? ` · ${item.boat_name}` : ''}
           </p>
         </div>
       </div>
 
       <Link
         href={`/regattas/${item.regatta_id}`}
-        className="mt-3 inline-block text-sm font-semibold text-water-600 hover:underline"
+        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-water-600 transition-all hover:gap-1.5 hover:underline"
       >
-        Ver resultados →
+        Ver resultados
+        <ArrowRight className="h-3 w-3" />
       </Link>
-    </article>
+    </FeedItemShell>
   );
 }

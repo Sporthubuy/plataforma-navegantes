@@ -243,6 +243,9 @@ router.post(
 /**
  * GET /api/messages/:conversationId — el hilo. Marca como leídos los
  * mensajes del otro: abrir la conversación es haberla leído.
+ *
+ * `?after=<ISO>` devuelve solo lo posterior a esa fecha, para que el
+ * refresco periódico del hilo abierto no vuelva a traer todo.
  */
 router.get(
   '/:conversationId',
@@ -262,13 +265,19 @@ router.get(
         ? Math.min(Math.floor(rawLimit), MAX_LIMIT)
         : DEFAULT_LIMIT;
 
-    const { data: messages, error } = await supabaseAdmin
+    const after = typeof req.query.after === 'string' ? req.query.after : '';
+    const incremental = after !== '' && !Number.isNaN(Date.parse(after));
+
+    let query = supabaseAdmin
       .from('messages')
       .select('id, conversation_id, sender_id, body, read_at, created_at')
       .eq('conversation_id', conversation.id)
       .order('created_at', { ascending: false })
       .limit(limit);
 
+    if (incremental) query = query.gt('created_at', after);
+
+    const { data: messages, error } = await query;
     if (error) throw error;
 
     const otherId =

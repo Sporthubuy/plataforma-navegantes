@@ -17,7 +17,7 @@ export function Widget({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-navy-100 bg-white p-4 shadow-sm">
+    <section className="rounded-xl border border-navy-100 bg-white p-4">
       <header className="mb-3 flex items-center gap-2">
         <Icon className="h-4 w-4 text-water-600" />
         <h2 className="flex-1 text-sm font-semibold text-navy-700">{title}</h2>

@@ -10,7 +10,6 @@ import {
   type ProfessionalSummary,
 } from '@/lib/types';
 
-/** Sello de verificado, reutilizado junto al nombre y en credenciales. */
 export function VerifiedBadge({ className = 'h-5 w-5' }: { className?: string }) {
   return (
     <BadgeCheck
@@ -20,10 +19,6 @@ export function VerifiedBadge({ className = 'h-5 w-5' }: { className?: string })
   );
 }
 
-/**
- * Banner de entrenador certificado: aparece cuando el navegante tiene
- * al menos una credencial de instructor o entrenador ya verificada.
- */
 export function CertifiedCoachBanner({
   credentials,
 }: {
@@ -37,7 +32,7 @@ export function CertifiedCoachBanner({
   if (!certified) return null;
 
   return (
-    <div className="mb-4 flex items-start gap-3 rounded-2xl border border-sage-200 bg-sage-50 p-4">
+    <div className="flex items-start gap-3 rounded-xl border border-sage-200 bg-sage-50 p-4">
       <Award className="mt-0.5 h-5 w-5 shrink-0 text-sage-700" />
       <div className="min-w-0">
         <p className="font-bold text-sage-900">Entrenador certificado</p>
@@ -50,7 +45,6 @@ export function CertifiedCoachBanner({
   );
 }
 
-/** Los cuatro números que resumen la trayectoria. */
 export function CvStats({ stats }: { stats: AchievementStats }) {
   const cells: { value: string; label: string }[] = [
     {
@@ -69,7 +63,7 @@ export function CvStats({ stats }: { stats: AchievementStats }) {
       {cells.map((cell) => (
         <div
           key={cell.label}
-          className="rounded-xl bg-white p-3 text-center shadow-sm"
+          className="rounded-xl border border-navy-100 bg-white p-3 text-center"
         >
           <p className="text-2xl font-bold text-navy-900">{cell.value}</p>
           <p className="text-xs text-navy-400">{cell.label}</p>
@@ -86,7 +80,6 @@ export function CvStats({ stats }: { stats: AchievementStats }) {
   );
 }
 
-/** Especialidades, clases preferidas y disponibilidad. */
 export function CvSpecialties({ summary }: { summary: ProfessionalSummary }) {
   const availabilityStyle: Record<string, string> = {
     available: 'bg-sage-100 text-sage-700',
@@ -138,7 +131,6 @@ function formatCredentialDate(iso: string | null): string {
   });
 }
 
-/** Lista de títulos y certificaciones. */
 export function CvCredentials({
   credentials,
   isOwner,

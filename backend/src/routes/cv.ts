@@ -37,6 +37,23 @@ export const CREDENTIAL_FIELDS =
 export const ACHIEVEMENT_FIELDS =
   'id, user_id, achievement_type, regatta_id, regatta_class_id, regatta_name, regatta_class, regatta_date, position, total_entries, boat_name, is_manual, notes, created_at';
 
+// ── Historial laboral en la industria náutica ─────────────────
+
+export const WORK_TYPES = [
+  'sailing_school',
+  'race_team',
+  'club_staff',
+  'coach',
+  'boat_builder',
+  'regatta_management',
+  'sponsor',
+  'marine_industry',
+  'other',
+] as const;
+
+export const WORK_FIELDS =
+  'id, user_id, role, organization, location, work_type, start_month, start_year, end_month, end_year, description, is_verified, created_at, updated_at';
+
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 100;
 
@@ -334,6 +351,153 @@ router.delete(
       .eq('id', existing.id);
 
     if (error) throw error;
+    return res.status(204).send();
+  })
+);
+
+// ============================================================
+// HISTORIAL LABORAL EN LA INDUSTRIA NÁUTICA
+// ============================================================
+
+const MAX_WORK_DESC = 2000;
+const MAX_TEXT = 150;
+
+/** POST /api/users/profile/:id/work — solo el dueño. */
+router.post(
+  '/profile/:id/work',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!assertOwner(req, res)) return;
+
+    const body = req.body ?? {};
+
+    if (!isNonEmptyString(body.role)) {
+      return res.status(400).json({ error: 'El cargo es obligatorio' });
+    }
+    if (
+      typeof body.work_type === 'string' &&
+      !(WORK_TYPES as readonly string[]).includes(body.work_type)
+    ) {
+      return res.status(422).json({ error: 'Tipo de trabajo inválido' });
+    }
+    if (
+      !Number.isInteger(body.start_month) ||
+      body.start_month < 1 ||
+      body.start_month > 12
+    ) {
+      return res
+        .status(422)
+        .json({ error: 'Mes de inicio inválido (1-12)' });
+    }
+    if (
+      !Number.isInteger(body.start_year) ||
+      body.start_year < 1950 ||
+      body.start_year > new Date().getFullYear() + 1
+    ) {
+      return res.status(422).json({ error: 'Año de inicio inválido' });
+    }
+    // Si hay end, validar.
+    const hasEnd =
+      body.end_month != null || body.end_year != null || body.current === false;
+    if (hasEnd) {
+      if (
+        body.end_year != null &&
+        (!Number.isInteger(body.end_year) ||
+          body.end_year < 1950 ||
+          body.end_year > new Date().getFullYear() + 1)
+      ) {
+        return res
+          .status(422)
+          .json({ error: 'Año de fin inválido' });
+      }
+      if (
+        body.end_year != null &&
+        Number.isInteger(body.end_month ?? undefined) &&
+        (body.end_month! < 1 || body.end_month! > 12)
+      ) {
+        return res
+          .status(422)
+          .json({ error: 'Mes de fin inválido (1-12)' });
+      }
+      // End no puede ser antes del start.
+      const sY = body.start_year as number;
+      const eY = body.end_year as number;
+      if (eY < sY || (eY === sY && body.end_month != null && (body.end_month as number) < (body.start_month as number))) {
+        return res
+          .status(422)
+          .json({ error: 'La fecha de fin no puede ser anterior al inicio' });
+      }
+    }
+
+    const description = cleanText(body.description, MAX_WORK_DESC);
+    const { data, error } = await supabaseAdmin
+      .from('work_experience')
+      .insert({
+        user_id: req.params.id,
+        role: body.role.trim().slice(0, MAX_TEXT),
+        organization: cleanText(body.organization, MAX_TEXT),
+        location: cleanText(body.location, MAX_TEXT),
+        work_type: typeof body.work_type === 'string' ? body.work_type : 'other',
+        start_month: body.start_month,
+        start_year: body.start_year,
+        end_month: hasEnd ? (body.end_month ?? null) : null,
+        end_year: hasEnd ? (body.end_year ?? null) : null,
+        description,
+        is_verified: false,
+      })
+      .select(WORK_FIELDS)
+      .single();
+
+    if (error) throw error;
+    return res.status(201).json({ work: data });
+  })
+);
+
+/**
+ * PUT /api/users/profile/:id/work/:workId — verificar.
+ * Requiere el permiso users.verify (igual que credentials).
+ */
+router.put(
+  '/profile/:id/work/:workId',
+  requireAuth,
+  requirePermission('users.verify'),
+  asyncHandler(async (req, res) => {
+    const { is_verified } = req.body ?? {};
+    if (typeof is_verified !== 'boolean') {
+      return res.status(400).json({ error: 'is_verified debe ser booleano' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('work_experience')
+      .update({ is_verified })
+      .eq('id', req.params.workId)
+      .eq('user_id', req.params.id)
+      .select(WORK_FIELDS)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Historial no encontrado' });
+    return res.json({ work: data });
+  })
+);
+
+/** DELETE /api/users/profile/:id/work/:workId — solo el dueño. */
+router.delete(
+  '/profile/:id/work/:workId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!assertOwner(req, res)) return;
+
+    const { data, error } = await supabaseAdmin
+      .from('work_experience')
+      .delete()
+      .eq('id', req.params.workId)
+      .eq('user_id', req.params.id)
+      .select('id')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Historial no encontrado' });
     return res.status(204).send();
   })
 );

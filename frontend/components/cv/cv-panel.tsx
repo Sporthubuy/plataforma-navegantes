@@ -1,42 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Trophy } from 'lucide-react';
+import { Plus, Sailboat, Trophy } from 'lucide-react';
 import { api, getApiError } from '@/lib/api';
 import { EmptyState } from '@/components/empty-state';
 import { AchievementTimeline } from './achievement-timeline';
-import { CredentialModal, ManualAchievementModal } from './cv-modals';
+import { WorkExperienceList } from './work-experience-list';
+import {
+  CredentialModal,
+  ManualAchievementModal,
+  WorkExperienceModal,
+  SailingHoursModal,
+  CommunityAchievementBadges,
+} from './cv-modals';
+import { RankBadge } from '@/components/profile/profile-extras';
 import {
   CertifiedCoachBanner,
   CvCredentials,
   CvSpecialties,
   CvStats,
 } from './cv-sections';
-import type { ProfileWithCv } from '@/lib/types';
+import { ProfileSection } from '@/components/profile/profile-section';
+import type { ProfileWithCv, SailingHourEntry } from '@/lib/types';
 
-function SectionHeader({
-  title,
-  action,
-}: {
-  title: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-2 flex items-center justify-between gap-3">
-      <h2 className="text-lg font-bold text-navy-900">{title}</h2>
-      {action}
-    </div>
-  );
-}
-
-function AddButton({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
+function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -50,28 +38,58 @@ function AddButton({
 }
 
 /**
- * Bloque de CV náutico: se usa igual en el perfil propio y en el de
- * otro navegante. `isOwner` decide qué se puede editar.
+ * Sección total del CV náutico tipo LinkedIn. Las secciones son cards
+ * independientes con header consistente (título + acción). Reutilizable
+ * en el perfil propio y en el público.
  *
- * Si el perfil es privado y quien mira no es el dueño, el backend ya
- * devuelve credenciales y logros vacíos: acá no hace falta filtrar nada.
+ * `boats` (opcional) se renderiza como una sección más al final — así
+ * los barcos viven en el contexto del CV náutico del navegante en vez
+ * de estar sueltos en la página.
  */
 export function CvPanel({
   profile,
   isOwner,
   onRefresh,
+  boats,
 }: {
   profile: ProfileWithCv;
   isOwner: boolean;
   onRefresh: () => void;
+  boats?: React.ReactNode;
 }) {
   const [credentialModal, setCredentialModal] = useState(false);
   const [achievementModal, setAchievementModal] = useState(false);
+  const [workModal, setWorkModal] = useState(false);
+  const [sailingModal, setSailingModal] = useState(false);
+  const [sailingHours, setSailingHours] = useState<SailingHourEntry[]>([]);
+  const [hoursLoading, setHoursLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetch = async () => {
+      setHoursLoading(true);
+      try {
+        const res = await api.get(`/api/users/profile/${profile.id}/sailing-hours?limit=5`);
+        if (!cancelled) setSailingHours(res.data.entries ?? []);
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setHoursLoading(false);
+      }
+    };
+    fetch();
+    return () => { cancelled = true; };
+  }, [profile.id]);
 
   const summary = profile.professional_summary ?? null;
   const stats = profile.achievement_stats;
   const credentials = profile.credentials ?? [];
   const achievements = profile.achievements ?? [];
+  const work = profile.work_experience ?? [];
+
+  // "Acerca de" muestra la bio personal y/o la profesional: separadas
+  // por un guion sutil si ambas existen, para no mezclar registro.
+  const aboutTexts = [profile.bio, summary?.professional_bio].filter(Boolean) as string[];
 
   async function deleteCredential(id: string) {
     if (!confirm('¿Borrar este título?')) return;
@@ -95,45 +113,104 @@ export function CvPanel({
     }
   }
 
+  async function deleteWork(id: string) {
+    if (!confirm('¿Borrar este cargo del historial laboral?')) return;
+    try {
+      await api.delete(`/api/users/profile/${profile.id}/work/${id}`);
+      toast.success('Cargo borrado');
+      onRefresh();
+    } catch (err) {
+      toast.error(getApiError(err, 'No se pudo borrar'));
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-5">
       <CertifiedCoachBanner credentials={credentials} />
 
-      {summary?.professional_bio && (
-        <section>
-          <SectionHeader title="Perfil profesional" />
-          <p className="max-w-prose text-[15px] whitespace-pre-wrap text-navy-700">
-            {summary.professional_bio}
-          </p>
-        </section>
+      {aboutTexts.length > 0 && (
+        <ProfileSection title="Acerca de">
+          <div className="flex flex-col gap-3">
+            {profile.bio && (
+              <p className="max-w-prose text-sm whitespace-pre-wrap text-navy-700 leading-relaxed">
+                {profile.bio}
+              </p>
+            )}
+            {summary?.professional_bio && (
+              <p className="max-w-prose text-sm whitespace-pre-wrap text-navy-600 leading-relaxed">
+                {summary.professional_bio}
+              </p>
+            )}
+          </div>
+        </ProfileSection>
       )}
 
       {stats && (
-        <section>
-          <SectionHeader title="Trayectoria" />
+        <ProfileSection title="Trayectoria">
           <CvStats stats={stats} />
-        </section>
+        </ProfileSection>
       )}
 
       {summary && (
-        <section>
-          <SectionHeader title="Especialidades y disponibilidad" />
+        <ProfileSection title="Especialidades y disponibilidad">
           <CvSpecialties summary={summary} />
-        </section>
+        </ProfileSection>
       )}
 
-      <section>
-        <SectionHeader
-          title="Títulos y certificaciones"
-          action={
-            isOwner && (
-              <AddButton
-                label="Agregar título"
-                onClick={() => setCredentialModal(true)}
-              />
-            )
-          }
-        />
+      {/* ─── Actividad: rango, horas de mar y logros comunitarios ─── */}
+      <ProfileSection
+        title="Actividad"
+        action={
+          isOwner && (
+            <AddButton label="Registrar salida" onClick={() => setSailingModal(true)} />
+          )
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {profile.sailor_rank && <RankBadge rank={profile.sailor_rank} />}
+
+          {sailingHours.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-semibold text-navy-500 uppercase tracking-wide">Últimas salidas</p>
+              <div className="flex flex-col gap-2">
+                {sailingHours.slice(0, 3).map((e) => (
+                  <div key={e.id} className="flex items-center justify-between rounded-lg bg-navy-50 px-3 py-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Sailboat className="h-4 w-4 text-navy-400" />
+                      <span className="text-navy-700">
+                        {new Date(e.sailed_date).toLocaleDateString('es-UY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                      {e.sailing_class && (
+                        <span className="text-navy-400">· {e.sailing_class}</span>
+                      )}
+                    </div>
+                    <span className="font-medium text-navy-800">{e.hours}h</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!hoursLoading && sailingHours.length === 0 && !profile.sailor_rank && (
+            <p className="text-sm text-navy-400">
+              {isOwner
+                ? 'Registrá tus primeras horas de navegación para empezar a sumar.'
+                : 'Este navegante todavía no registró actividad.'}
+            </p>
+          )}
+
+          <CommunityAchievementBadges achievements={profile.community_achievements ?? []} />
+        </div>
+      </ProfileSection>
+
+      <ProfileSection
+        title="Títulos y certificaciones"
+        action={
+          isOwner && (
+            <AddButton label="Agregar título" onClick={() => setCredentialModal(true)} />
+          )
+        }
+      >
         {credentials.length === 0 ? (
           <p className="text-sm text-navy-400">
             {isOwner
@@ -141,26 +218,29 @@ export function CvPanel({
               : 'Este navegante no publicó títulos.'}
           </p>
         ) : (
-          <CvCredentials
-            credentials={credentials}
-            isOwner={isOwner}
-            onDelete={deleteCredential}
-          />
+          <CvCredentials credentials={credentials} isOwner={isOwner} onDelete={deleteCredential} />
         )}
-      </section>
+      </ProfileSection>
 
-      <section>
-        <SectionHeader
-          title="Historial de regatas"
-          action={
-            isOwner && (
-              <AddButton
-                label="Agregar logro"
-                onClick={() => setAchievementModal(true)}
-              />
-            )
-          }
-        />
+      <ProfileSection
+        title="Experiencia laboral en la industria"
+        action={
+          isOwner && (
+            <AddButton label="Agregar cargo" onClick={() => setWorkModal(true)} />
+          )
+        }
+      >
+        <WorkExperienceList jobs={work} isOwner={isOwner} onDelete={deleteWork} />
+      </ProfileSection>
+
+      <ProfileSection
+        title="Historial de regatas"
+        action={
+          isOwner && (
+            <AddButton label="Agregar logro" onClick={() => setAchievementModal(true)} />
+          )
+        }
+      >
         {achievements.length === 0 ? (
           <EmptyState
             title="Todavía no hay logros"
@@ -170,9 +250,8 @@ export function CvPanel({
                 : 'Este navegante todavía no tiene regatas registradas.'
             }
             icon={<Trophy className="h-10 w-10 text-navy-300" />}
-            actions={
-              isOwner ? [{ label: 'Ver regatas', href: '/regattas' }] : undefined
-            }
+            compact
+            actions={isOwner ? [{ label: 'Ver regatas', href: '/regattas' }] : undefined}
           />
         ) : (
           <AchievementTimeline
@@ -182,7 +261,9 @@ export function CvPanel({
             onDelete={deleteAchievement}
           />
         )}
-      </section>
+      </ProfileSection>
+
+      {boats && <ProfileSection title="Barcos">{boats}</ProfileSection>}
 
       {credentialModal && (
         <CredentialModal
@@ -196,6 +277,24 @@ export function CvPanel({
           userId={profile.id}
           onClose={() => setAchievementModal(false)}
           onSaved={onRefresh}
+        />
+      )}
+      {workModal && (
+        <WorkExperienceModal
+          userId={profile.id}
+          onClose={() => setWorkModal(false)}
+          onSaved={onRefresh}
+        />
+      )}
+
+      {sailingModal && (
+        <SailingHoursModal
+          userId={profile.id}
+          onClose={() => setSailingModal(false)}
+          onSaved={(entry) => {
+            setSailingHours((prev) => [entry, ...prev].slice(0, 5));
+            onRefresh();
+          }}
         />
       )}
     </div>

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import { AppShell } from '@/components/app-shell';
-import { QuickActionBar } from '@/components/quick-action-bar';
+import { FeedComposer } from '@/components/feed/feed-composer';
 import { FeedCard } from '@/components/feed/feed-card';
 import { FeedSkeleton } from '@/components/feed/feed-skeleton';
 import { PostComposer } from '@/components/feed/post-composer';
@@ -68,7 +68,9 @@ export default function HomePage() {
               queda solo para lectores de pantalla. */}
           <h1 className="sr-only">Inicio</h1>
 
-          <QuickActionBar onNewPost={() => setComposerOpen(true)} />
+          <FeedComposer onNewPost={() => setComposerOpen(true)} />
+
+          <div className="mt-4" />
 
           {feed.loading ? (
             <FeedSkeleton />

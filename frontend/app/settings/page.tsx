@@ -9,23 +9,32 @@ import {
   LogOut,
   ShieldAlert,
   UserPen,
+  Globe,
+  Clock,
+  Languages,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { api, getApiError } from '@/lib/api';
 import { AppShell } from '@/components/app-shell';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input, Field, Select } from '@/components/ui/input';
 import { PostCard } from '@/components/feed/post-card';
+import { usePrefs, COMMON_TIMEZONES, LOCALES } from '@/lib/prefs';
+import { COUNTRIES } from '@/lib/geo';
 import type { Post } from '@/lib/types';
 
 export default function SettingsPage() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, updateUser } = useAuth();
   const router = useRouter();
+  const { prefs, update } = usePrefs();
 
   const [saved, setSaved] = useState<Post[]>([]);
   const [confirm, setConfirm] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const isPublic = user?.public_profile !== false;
+  const [savingPrivacy, setSavingPrivacy] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/auth/login');
@@ -38,6 +47,22 @@ export default function SettingsPage() {
       .then((res) => setSaved(res.data.posts))
       .catch(() => setSaved([]));
   }, [user]);
+
+  async function togglePrivacy(value: boolean) {
+    if (!user) return;
+    setSavingPrivacy(true);
+    try {
+      await api.put(`/api/users/profile/${user.id}`, {
+        public_profile: value,
+      });
+      updateUser({ public_profile: value });
+      toast.success(value ? 'Perfil público' : 'Perfil privado');
+    } catch (err) {
+      toast.error(getApiError(err, 'No se pudo cambiar la visibilidad'));
+    } finally {
+      setSavingPrivacy(false);
+    }
+  }
 
   async function deleteAccount() {
     if (!user) return;
@@ -65,10 +90,9 @@ export default function SettingsPage() {
   return (
     <AppShell>
       <div className="mx-auto w-full max-w-2xl">
-        {/* El nombre de la sección ya está en la navegación: el título
-            queda solo para lectores de pantalla. */}
         <h1 className="sr-only">Ajustes</h1>
 
+        {/* Cuenta */}
         <Card>
           <h2 className="flex items-center gap-2 font-semibold text-navy-900">
             <UserPen className="h-4 w-4 text-navy-400" />
@@ -98,6 +122,113 @@ export default function SettingsPage() {
           </div>
         </Card>
 
+        {/* Privacidad */}
+        <Card className="mt-4">
+          <h2 className="flex items-center gap-2 font-semibold text-navy-900">
+            <Lock className="h-4 w-4 text-navy-400" />
+            Privacidad
+          </h2>
+          <p className="mt-1 text-sm text-navy-500">
+            Elegí si tu CV náutico es visible para toda la comunidad.
+          </p>
+
+          <label className="mt-4 flex items-start gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isPublic}
+              disabled={savingPrivacy}
+              onClick={() => togglePrivacy(!isPublic)}
+              className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:opacity-50 ${
+                isPublic ? 'bg-water-600' : 'bg-navy-200'
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                  isPublic ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+            <span>
+              <span className="block text-sm font-medium text-navy-800">
+                {savingPrivacy
+                  ? 'Guardando…'
+                  : isPublic
+                    ? 'Perfil público'
+                    : 'Perfil privado'}
+              </span>
+              <span className="block text-xs text-navy-500">
+                {isPublic
+                  ? 'Tu historial, credenciales y datos náuticos son visibles para cualquier navegante.'
+                  : 'Solo ven tu nombre, avatar y titular. El resto queda privado.'}
+              </span>
+            </span>
+          </label>
+        </Card>
+
+        {/* Preferencias */}
+        <Card className="mt-4">
+          <h2 className="flex items-center gap-2 font-semibold text-navy-900">
+            <Globe className="h-4 w-4 text-navy-400" />
+            Preferencias
+          </h2>
+          <p className="mt-1 text-sm text-navy-500">
+            Personalizá cómo ves la plataforma. Se guardan en este dispositivo.
+          </p>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Field label="País" hint="Para sugerencias y formularios.">
+              <Select
+                value={prefs.country}
+                onChange={(e) => update({ country: e.target.value })}
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>{c.name}</option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field label="Idioma">
+              <Select
+                value={prefs.locale}
+                onChange={(e) => update({ locale: e.target.value })}
+              >
+                {LOCALES.map((l) => (
+                  <option key={l.code} value={l.code}>{l.label}</option>
+                ))}
+              </Select>
+            </Field>
+
+            <div className="sm:col-span-2">
+              <Field
+                label="Zona horaria"
+                hint="Las fechas y horarios se muestran con esta zona."
+              >
+                <Select
+                  value={prefs.timezone}
+                  onChange={(e) => update({ timezone: e.target.value })}
+                >
+                  {COMMON_TIMEZONES.map((tz) => (
+                    <option key={tz} value={tz}>{tz}</option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-3 text-xs text-navy-400">
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" />
+              Zona: {prefs.timezone}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Languages className="h-3.5 w-3.5" />
+              Idioma: {LOCALES.find((l) => l.code === prefs.locale)?.label ?? prefs.locale}
+            </span>
+          </div>
+        </Card>
+
+        {/* Guardados */}
         <section className="mt-6">
           <h2 className="flex items-center gap-2 text-lg font-bold text-navy-900">
             <Bookmark className="h-5 w-5 text-water-600" />
@@ -117,6 +248,7 @@ export default function SettingsPage() {
           )}
         </section>
 
+        {/* Zona peligrosa */}
         <Card className="mt-8 border border-red-200">
           <h2 className="flex items-center gap-2 font-semibold text-red-700">
             <ShieldAlert className="h-4 w-4" />

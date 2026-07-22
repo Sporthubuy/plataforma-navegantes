@@ -1,48 +1,59 @@
 import Link from 'next/link';
-import { Flag, MapPin, CalendarDays } from 'lucide-react';
-import { buttonClasses } from '@/components/ui/button';
+import { CalendarDays, MapPin, ArrowRight } from 'lucide-react';
 import { REGATTA_STATUS } from '@/components/regatta/status-badge';
 import { formatDateRange } from '@/lib/format';
 import { placeLabel } from '@/lib/geo';
 import type { Regatta } from '@/lib/types';
+import { FeedItemShell } from './feed-item-shell';
 
-/** Regata próxima dentro del feed. */
+const TYPE_STYLE = {
+  label: 'Regata',
+  badge: 'bg-water-50 text-water-600',
+};
+
 export function FeedRegattaCard({ regatta }: { regatta: Regatta }) {
   const status = REGATTA_STATUS[regatta.status];
   const classes = regatta.classes ?? [];
   const isOpen = classes.some((c) => c.status === 'open');
 
   return (
-    <article className="animate-[fadeIn_300ms_ease-out] rounded-xl border border-navy-100 bg-white p-4 transition duration-150 hover:border-water-600/20 hover:shadow-md md:p-5">
-      <div className="flex items-center gap-2 text-xs font-semibold text-water-600">
-        <Flag className="h-4 w-4" />
-        Regata
-      </div>
+    <FeedItemShell
+      typeStyle={TYPE_STYLE}
+      actor={{
+        name: regatta.club?.name ?? regatta.name,
+        headline: regatta.club?.short_name ?? placeLabel(regatta) ?? undefined,
+        avatar_url: null,
+      }}
+    >
+      <Link href={`/regattas/${regatta.id}`} className="block">
+        <h2 className="text-[15px] font-semibold leading-snug text-navy-950">{regatta.name}</h2>
+      </Link>
 
-      <h2 className="mt-2 font-bold text-navy-900">{regatta.name}</h2>
-
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-navy-500">
-        <span className="inline-flex items-center gap-1 rounded-full bg-navy-50 px-2 py-0.5">
+      <p className="mt-1 line-clamp-2 text-sm text-navy-500">
+        <span className="inline-flex items-center gap-1">
           <CalendarDays className="h-3.5 w-3.5" />
           {formatDateRange(regatta.start_date, regatta.end_date)}
         </span>
         {placeLabel(regatta) && (
-          <span className="inline-flex items-center gap-1">
-            <MapPin className="h-3.5 w-3.5" />
-            {placeLabel(regatta)}
-          </span>
+          <>
+            <span className="mx-1 text-navy-200">·</span>
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-3.5 w-3.5" />
+              {placeLabel(regatta)}
+            </span>
+          </>
         )}
-        <span className={`rounded-full px-2 py-0.5 font-medium ${status.classes}`}>
+        <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${status.classes}`}>
           {status.label}
         </span>
-      </div>
+      </p>
 
       {classes.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {classes.map((c) => (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {classes.slice(0, 4).map((c) => (
             <span
               key={c.id}
-              className="rounded-full bg-water-50 px-2 py-0.5 text-xs font-medium text-water-600"
+              className="rounded-full bg-water-50 px-1.5 py-0.5 text-[10px] font-medium text-water-600"
             >
               {c.sailing_class}
             </span>
@@ -50,22 +61,13 @@ export function FeedRegattaCard({ regatta }: { regatta: Regatta }) {
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Link
-          href={`/regattas/${regatta.id}`}
-          className={buttonClasses('secondary', 'sm')}
-        >
-          Ver detalle
-        </Link>
-        {isOpen && (
-          <Link
-            href={`/regattas/${regatta.id}`}
-            className={buttonClasses('primary', 'sm')}
-          >
-            Inscribirse
-          </Link>
-        )}
-      </div>
-    </article>
+      <Link
+        href={`/regattas/${regatta.id}`}
+        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-water-600 transition-all hover:gap-1.5 hover:underline"
+      >
+        {isOpen ? 'Inscribirse' : 'Ver detalle'}
+        <ArrowRight className="h-3 w-3" />
+      </Link>
+    </FeedItemShell>
   );
 }

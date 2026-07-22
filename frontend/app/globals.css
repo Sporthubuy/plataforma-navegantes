@@ -4,36 +4,35 @@
   --font-sans: "Avenir Next", "Trebuchet MS", sans-serif;
   --font-mono: "SFMono-Regular", Consolas, monospace;
 
-  /* Paleta náutica: profundidad, agua, salvia y arena. */
-  --color-navy-50: #f5f8fa;
-  --color-navy-100: #e2ebf4;
-  --color-navy-200: #c3d6e8;
-  --color-navy-300: #94b5d4;
-  --color-navy-400: #5e8cba;
-  --color-navy-500: #3d6da0;
-  --color-navy-600: #2d5585;
-  --color-navy-700: #26476d;
-  --color-navy-800: #223c5b;
+  /* Paleta profesional tipo LinkedIn con identidad náutica:
+     navy como neutro principal, water como accent corporativo. */
+  --color-navy-50: #f4f6f9;
+  --color-navy-100: #e0e4ea;
+  --color-navy-200: #c2c9d4;
+  --color-navy-300: #94a0b3;
+  --color-navy-400: #6a7a91;
+  --color-navy-500: #4a5b72;
+  --color-navy-600: #364759;
+  --color-navy-700: #2a384a;
+  --color-navy-800: #1B4F72;
   --color-navy-900: #14263d;
   --color-navy-950: #0c1829;
   --color-water-50: #effafa;
   --color-water-100: #d9f1f2;
-  --color-water-600: #16717a;
+  --color-water-600: #0A7C8A;
   --color-sage-100: #e6f3ea;
   --color-sage-700: #237044;
   --color-sand-100: #fff4dc;
   --color-sand-700: #9a6517;
 
-  /* Ancho del sidebar de escritorio (usado por el shell) */
-  --sidebar-width: 16rem;
+  /* Ancho del sidebar de escritorio (más compacto, como LinkedIn) */
+  --sidebar-width: 14rem;
 }
 
 html {
-  /* Nunca scroll horizontal en ningún breakpoint. */
   overflow-x: hidden;
 }
 
-/* Aparición suave de estados vacíos y tarjetas del feed. */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -62,9 +61,7 @@ html {
 }
 
 body {
-  background:
-    radial-gradient(circle at 92% -10%, rgba(143, 201, 205, 0.2), transparent 30rem),
-    linear-gradient(180deg, #f8fbfc 0%, var(--color-navy-50) 42rem);
+  background: var(--color-navy-50);
   color: var(--color-navy-950);
 }
 
@@ -84,16 +81,16 @@ textarea {
 @utility focus-ring {
   outline: none;
   &:focus-visible {
-    box-shadow: 0 0 0 3px rgba(22, 113, 122, 0.22);
+    box-shadow: 0 0 0 3px rgba(10, 124, 138, 0.22);
   }
 }
 
 @utility surface-lift {
   border: 1px solid var(--color-navy-100);
-  box-shadow: 0 12px 30px rgba(20, 38, 61, 0.06);
+  box-shadow: 0 1px 3px rgba(20, 38, 61, 0.06);
 }
 
-/* Utilidades de safe-area (notch) para la bottom-nav y headers móviles. */
+/* Utilidades de safe-area (notch). */
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -104,8 +101,6 @@ textarea {
   height: calc(4rem + env(safe-area-inset-bottom));
 }
 
-/* Alto de la top-bar móvil (3.5rem) + notch. La usan el padding del
-   contenido y el offset de los elementos sticky que quedan debajo. */
 @utility pt-mobile-header {
   padding-top: calc(3.5rem + env(safe-area-inset-top) + 1.5rem);
 }
@@ -113,8 +108,6 @@ textarea {
   top: calc(3.5rem + env(safe-area-inset-top));
 }
 
-/* Impresión: "Descargar CV" usa el diálogo del navegador, así que la
-   página tiene que quedar limpia de navegación y controles. */
 @media print {
   aside,
   header,
@@ -130,7 +123,6 @@ textarea {
   body {
     background: white !important;
   }
-  /* Un logro cortado a la mitad entre dos hojas se lee mal. */
   li,
   section {
     break-inside: avoid;

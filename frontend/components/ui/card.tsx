@@ -1,6 +1,5 @@
 import type { HTMLAttributes } from 'react';
 
-/** Superficie blanca redondeada, unidad visual base de la app. */
 export function Card({
   className = '',
   padded = true,
@@ -8,7 +7,7 @@ export function Card({
 }: HTMLAttributes<HTMLDivElement> & { padded?: boolean }) {
   return (
     <div
-      className={`rounded-2xl bg-white shadow-sm ${padded ? 'p-4 md:p-6' : ''} ${className}`}
+      className={`rounded-xl border border-navy-100 bg-white transition duration-150 hover:border-navy-200 ${padded ? 'p-4 md:p-6' : ''} ${className}`}
       {...props}
     />
   );

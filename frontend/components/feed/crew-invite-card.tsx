@@ -3,17 +3,16 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { UserPlus } from 'lucide-react';
+import { Ship, Check, X } from 'lucide-react';
 import { api, getApiError } from '@/lib/api';
-import { Avatar } from '@/components/avatar';
-import { Username } from '@/components/username';
-import { Button } from '@/components/ui/button';
 import type { Invitation } from '@/lib/types';
+import { FeedItemShell } from './feed-item-shell';
 
-/**
- * Invitación a tripular, respondible desde el propio feed.
- * Al responder se desvanece y avisa al feed para que la quite.
- */
+const TYPE_STYLE = {
+  label: 'Invitación',
+  badge: 'bg-water-50 text-water-600',
+};
+
 export function CrewInviteCard({
   invitation,
   onResolved,
@@ -28,10 +27,7 @@ export function CrewInviteCard({
     setBusy(true);
     try {
       await api.put(`/api/crew/invitations/${invitation.id}/${action}`);
-      toast.success(
-        action === 'accept' ? '¡Bienvenido a bordo! 🎉' : 'Invitación rechazada'
-      );
-      // Deja correr la animación de salida antes de quitarla.
+      toast.success(action === 'accept' ? '¡Bienvenido a bordo! 🎉' : 'Invitación rechazada');
       setLeaving(true);
       setTimeout(onResolved, 300);
     } catch (err) {
@@ -42,58 +38,75 @@ export function CrewInviteCard({
 
   const boat = invitation.boat;
 
+  const footer = (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => respond('accept')}
+        className="focus-ring inline-flex items-center gap-1.5 rounded-full bg-sage-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sage-700/90 disabled:opacity-50"
+      >
+        <Check className="h-3.5 w-3.5" />
+        Aceptar
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => respond('reject')}
+        className="focus-ring inline-flex items-center gap-1.5 rounded-full border border-navy-200 px-3 py-1.5 text-xs font-semibold text-navy-600 transition hover:bg-navy-50 disabled:opacity-50"
+      >
+        <X className="h-3.5 w-3.5" />
+        Rechazar
+      </button>
+    </div>
+  );
+
   return (
-    <article
-      className={`rounded-xl border border-water-600/20 bg-water-50/50 p-4 md:p-5 ${
-        leaving
-          ? 'animate-[fadeOut_300ms_ease-in_forwards]'
-          : 'animate-[fadeIn_300ms_ease-out]'
-      }`}
-    >
-      <div className="flex items-center gap-2 text-xs font-semibold text-water-600">
-        <UserPlus className="h-4 w-4" />
-        Invitación a tripular
-      </div>
-
-      <div className="mt-3 flex items-center gap-3">
-        <Avatar
-          src={boat?.owner?.avatar_url}
-          name={boat?.name ?? '?'}
-          className="h-10 w-10 text-base"
-        />
-        <div className="min-w-0">
-          <Link
-            href={`/boats/${boat?.id}`}
-            className="block truncate font-bold text-navy-900 hover:underline"
-          >
-            {boat?.name ?? 'Barco'}
-          </Link>
-          <p className="truncate text-xs text-navy-500">
-            <Username username={boat?.owner?.username} className="text-xs" /> te
-            invita como{' '}
-            <span className="font-semibold text-navy-700">{invitation.role}</span>
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-4 flex gap-2">
-        <Button
-          size="sm"
-          disabled={busy}
-          onClick={() => respond('accept')}
-          className="bg-sage-700 hover:bg-sage-700/90"
+    <div className={leaving ? 'animate-[fadeOut_300ms_ease-in_forwards]' : ''}>
+      <FeedItemShell
+        typeStyle={TYPE_STYLE}
+        accent
+        actor={
+          boat?.owner
+            ? {
+                name: boat.owner.name || `@${boat.owner.username}`,
+                username: boat.owner.username,
+                avatar_url: boat.owner.avatar_url,
+                href: boat.owner.id ? `/profile/${boat.owner.id}` : undefined,
+                headline: `te invita como ${invitation.role}`,
+              }
+            : null
+        }
+        footer={footer}
+      >
+        <Link
+          href={`/boats/${boat?.id ?? '#'}`}
+          className="flex items-center gap-2 rounded-lg border border-navy-100 bg-white p-2 transition hover:border-navy-200"
         >
-          Aceptar
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={busy}
-          onClick={() => respond('reject')}
-        >
-          Rechazar
-        </Button>
-      </div>
-    </article>
+          {boat?.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={boat.photo_url}
+              alt={boat.name ?? 'Barco'}
+              className="h-9 w-9 shrink-0 rounded-md object-cover"
+            />
+          ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-navy-100">
+              <Ship className="h-4 w-4 text-navy-500" />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-navy-950">{boat?.name ?? 'Barco'}</p>
+            <p className="truncate text-xs text-navy-500">
+              {boat?.category ?? '—'}
+              {boat?.sail_number ? ` · #${boat.sail_number}` : ''}
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full bg-water-50 px-2 py-0.5 text-[10px] font-semibold text-water-600">
+            {invitation.role}
+          </span>
+        </Link>
+      </FeedItemShell>
+    </div>
   );
 }

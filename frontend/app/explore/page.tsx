@@ -1,38 +1,89 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Search } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Search, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import { AppShell } from '@/components/app-shell';
 import { Avatar } from '@/components/avatar';
 import { Username } from '@/components/username';
-import { Input } from '@/components/ui/input';
+import { Field, Select } from '@/components/ui/input';
 import { FeedRegattaCard } from '@/components/feed/regatta-card';
 import { FeedClassifiedCard } from '@/components/feed/classified-feed-card';
+import { TalentCard } from '@/components/cv/talent-card';
 import { EmptyState, SailingAloneIllustration } from '@/components/empty-state';
-import type { Classified, Regatta, UserSearchResult } from '@/lib/types';
+import { BOAT_CATEGORIES } from '@/components/boat-form';
+import { COUNTRIES, citiesOf } from '@/lib/geo';
+import {
+  AVAILABILITY_LABEL,
+  AVAILABILITY_STATUSES,
+  type Classified,
+  type Regatta,
+  type SearchResult,
+  type UserSearchResult,
+} from '@/lib/types';
 
-type Tab = 'navegantes' | 'regatas' | 'clasificados';
+type Tab = 'navegantes' | 'tripulacion' | 'regatas' | 'clasificados';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'navegantes', label: 'Navegantes' },
+  { id: 'tripulacion', label: 'Tripulación' },
   { id: 'regatas', label: 'Regatas' },
   { id: 'clasificados', label: 'Clasificados' },
 ];
 
+const SEARCH_TYPES = [
+  { value: '', label: 'Cualquiera' },
+  { value: 'tripulante', label: 'Tripulantes' },
+  { value: 'entrenador', label: 'Entrenadores' },
+  { value: 'socio_de_regata', label: 'Socios de regata' },
+];
+
+interface TalentFilters {
+  type: string;
+  sailingClass: string;
+  availability: string;
+  country: string;
+  city: string;
+  verified: boolean;
+}
+
+const EMPTY_TALENT_FILTERS: TalentFilters = {
+  type: '',
+  sailingClass: '',
+  availability: '',
+  country: '',
+  city: '',
+  verified: false,
+};
+
 export default function ExplorePage() {
+  return (
+    <Suspense fallback={<AppShell><p className="text-navy-400">Cargando…</p></AppShell>}>
+      <ExploreContent />
+    </Suspense>
+  );
+}
+
+function ExploreContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [tab, setTab] = useState<Tab>('navegantes');
+  // El tab inicial lo puede venir por ?tab=… (p. ej. desde el FAB de Tripulación).
+  const initialTab = (searchParams.get('tab') as Tab | null) ?? 'navegantes';
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [regattas, setRegattas] = useState<Regatta[]>([]);
   const [classifieds, setClassifieds] = useState<Classified[]>([]);
+
+  // Tripulación (talent)
+  const [filters, setFilters] = useState<TalentFilters>(EMPTY_TALENT_FILTERS);
+  const [talentResults, setTalentResults] = useState<SearchResult[] | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/auth/login');
@@ -50,13 +101,10 @@ export default function ExplorePage() {
       .catch(() => setClassifieds([]));
   }, [user]);
 
-  // Búsqueda de navegantes con debounce: el backend filtra por prefijo de username.
+  // Búsqueda de navegantes con debounce.
   useEffect(() => {
     const q = query.trim();
-    // Con menos de 2 letras no se busca; la UI ya muestra la pista y no
-    // llega a leer `results`, así que no hace falta limpiarlos acá.
     if (!user || q.length < 2) return;
-
     const timer = setTimeout(() => {
       setSearching(true);
       api
@@ -68,6 +116,30 @@ export default function ExplorePage() {
     return () => clearTimeout(timer);
   }, [query, user]);
 
+  // Búsqueda de tripulación (filtros).
+  const talentSearch = useCallback(() => {
+    const params: Record<string, string> = {};
+    if (filters.type) params.type = filters.type;
+    if (filters.sailingClass) params.class = filters.sailingClass;
+    if (filters.availability) params.availability = filters.availability;
+    if (filters.country) params.country = filters.country;
+    if (filters.city) params.city = filters.city;
+    if (filters.verified) params.verified = 'true';
+    api
+      .get('/api/search', { params })
+      .then((res) => setTalentResults(res.data.results))
+      .catch(() => setTalentResults([]));
+  }, [filters]);
+
+  useEffect(() => {
+    if (tab === 'tripulacion') talentSearch();
+  }, [tab, talentSearch]);
+
+  const cities = filters.country ? citiesOf(filters.country) : [];
+  const hasTalentFilters = Object.values(filters).some(Boolean);
+  const setTalent = (changes: Partial<TalentFilters>) =>
+    setFilters((current) => ({ ...current, ...changes }));
+
   if (loading || !user) {
     return (
       <AppShell>
@@ -78,9 +150,7 @@ export default function ExplorePage() {
 
   return (
     <AppShell>
-      <div className="mx-auto w-full max-w-2xl">
-        {/* El nombre de la sección ya está en la navegación: el título
-            queda solo para lectores de pantalla. */}
+      <div className="mx-auto w-full max-w-3xl">
         <h1 className="sr-only">Explorar</h1>
 
         <div
@@ -111,24 +181,24 @@ export default function ExplorePage() {
             <>
               <div className="relative">
                 <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-navy-400" />
-                <Input
+                <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Buscar por nombre de usuario…"
                   aria-label="Buscar navegantes"
-                  className="pl-9"
+                  className="w-full rounded-lg border border-navy-200 bg-white px-3 py-2.5 pl-9 text-sm outline-none transition focus:border-navy-500 focus:ring-2 focus:ring-navy-200"
                 />
               </div>
 
               <p className="mt-2 text-xs text-navy-400">
-                ¿Buscás por clase, zona o disponibilidad en vez de por
-                nombre?{' '}
-                <Link
-                  href="/talent"
+                ¿Buscás por clase, zona o disponibilidad en vez de por nombre?{' '}
+                <button
+                  type="button"
+                  onClick={() => setTab('tripulacion')}
                   className="font-semibold text-water-600 hover:underline"
                 >
                   Usá el buscador de tripulación
-                </Link>
+                </button>
                 .
               </p>
 
@@ -150,7 +220,7 @@ export default function ExplorePage() {
                     <Link
                       key={u.id}
                       href={`/profile/${u.id}`}
-                      className="focus-ring flex items-center gap-3 rounded-xl border border-navy-100 bg-white p-3 transition duration-150 hover:border-water-600/20 hover:shadow-md"
+                      className="focus-ring flex items-center gap-3 rounded-xl border border-navy-100 bg-white p-3 transition duration-150 hover:border-navy-200"
                     >
                       <Avatar
                         src={u.avatar_url}
@@ -165,6 +235,128 @@ export default function ExplorePage() {
                       </div>
                     </Link>
                   ))
+                )}
+              </div>
+            </>
+          )}
+
+          {tab === 'tripulacion' && (
+            <>
+              <div className="mb-3 flex items-center gap-2">
+                <Users className="h-5 w-5 text-water-600" />
+                <h2 className="text-sm font-bold text-navy-900">Buscar tripulación</h2>
+              </div>
+              <p className="mb-4 text-sm text-navy-500">
+                Navegantes y entrenadores que se ofrecieron. Primero los
+                verificados y los que más regatas navegaron.
+              </p>
+
+              <div className="grid gap-3 rounded-xl border border-navy-100 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Field label="Busco">
+                  <Select
+                    value={filters.type}
+                    onChange={(e) => setTalent({ type: e.target.value })}
+                  >
+                    {SEARCH_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <Field label="Clase">
+                  <Select
+                    value={filters.sailingClass}
+                    onChange={(e) => setTalent({ sailingClass: e.target.value })}
+                  >
+                    <option value="">Cualquier clase</option>
+                    {BOAT_CATEGORIES.filter((c) => c !== 'Otra').map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <Field label="Disponibilidad">
+                  <Select
+                    value={filters.availability}
+                    onChange={(e) => setTalent({ availability: e.target.value })}
+                  >
+                    <option value="">Cualquiera</option>
+                    {AVAILABILITY_STATUSES.map((a) => (
+                      <option key={a} value={a}>{AVAILABILITY_LABEL[a]}</option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <Field label="País">
+                  <Select
+                    value={filters.country}
+                    onChange={(e) => setTalent({ country: e.target.value, city: '' })}
+                  >
+                    <option value="">Cualquier país</option>
+                    {COUNTRIES.map((c) => (
+                      <option key={c.code} value={c.code}>{c.name}</option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <Field label="Ciudad">
+                  <Select
+                    value={filters.city}
+                    disabled={!filters.country || cities.length === 0}
+                    onChange={(e) => setTalent({ city: e.target.value })}
+                  >
+                    <option value="">
+                      {filters.country ? 'Todo el país' : 'Elegí el país primero'}
+                    </option>
+                    {cities.map((city) => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <label className="flex items-end gap-2 pb-2.5 text-sm font-medium text-navy-800">
+                  <input
+                    type="checkbox"
+                    checked={filters.verified}
+                    onChange={(e) => setTalent({ verified: e.target.checked })}
+                    className="h-4 w-4 accent-navy-700"
+                  />
+                  Solo verificados
+                </label>
+              </div>
+
+              {hasTalentFilters && (
+                <button
+                  type="button"
+                  onClick={() => setFilters(EMPTY_TALENT_FILTERS)}
+                  className="focus-ring mt-2 rounded-lg text-sm font-semibold text-water-600 hover:underline"
+                >
+                  Limpiar filtros
+                </button>
+              )}
+
+              <div className="mt-5">
+                {talentResults === null ? (
+                  <p className="text-sm text-navy-400">Buscando…</p>
+                ) : talentResults.length === 0 ? (
+                  <EmptyState
+                    title="Sin resultados"
+                    subtitle="Nadie coincide con esos filtros. Probá ampliar la búsqueda: solo aparecen los navegantes que completaron su perfil profesional."
+                    icon={<SailingAloneIllustration />}
+                    actions={[{ label: 'Completar mi perfil', href: '/profile' }]}
+                  />
+                ) : (
+                  <>
+                    <p className="mb-3 text-sm text-navy-500">
+                      {talentResults.length}{' '}
+                      {talentResults.length === 1 ? 'navegante' : 'navegantes'}
+                    </p>
+                    <div className="flex flex-col gap-3">
+                      {talentResults.map((r) => (
+                        <TalentCard key={r.profile.id} result={r} />
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             </>

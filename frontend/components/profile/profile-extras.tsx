@@ -1,5 +1,6 @@
 import { formatLocation } from '@/lib/geo';
-import type { ProfileStats, User } from '@/lib/types';
+import type { ProfileStats, SailorRank, User } from '@/lib/types';
+import { SAILOR_RANK_LABEL, type SailorRankName } from '@/lib/types';
 
 // ── Constructores de URL pública a partir del dato crudo ────────────
 
@@ -169,7 +170,7 @@ function StatTile({
   small?: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl bg-white p-4 text-center shadow-sm">
+    <div className="flex flex-col items-center justify-center rounded-xl border border-navy-100 bg-white p-4 text-center">
       <p
         className={`font-bold text-navy-900 ${
           small ? 'text-base md:text-lg' : 'text-2xl md:text-3xl'
@@ -189,6 +190,32 @@ export function StatsStrip({ stats }: { stats: ProfileStats | null }) {
       <StatTile value={stats.boats_owned} label="Barcos" />
       <StatTile value={stats.crews_joined} label="Tripulaciones" />
       <StatTile value={formatMembership(stats.member_since)} label="a bordo" small />
+    </div>
+  );
+}
+
+// ── Rango de gamificación ─────────────────────────────────
+
+const RANK_COLORS: Record<SailorRankName, { bg: string; text: string; dot: string }> = {
+  apprentice: { bg: 'bg-navy-100', text: 'text-navy-600', dot: 'bg-navy-400' },
+  sailor: { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
+  helmsman: { bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  master: { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
+  captain: { bg: 'bg-purple-100', text: 'text-purple-700', dot: 'bg-purple-500' },
+};
+
+export function RankBadge({ rank }: { rank: SailorRank | null }) {
+  if (!rank) return null;
+  const colors = RANK_COLORS[rank.rank] ?? RANK_COLORS.apprentice;
+  return (
+    <div className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 ${colors.bg}`}>
+      <span className={`h-2 w-2 rounded-full ${rank.is_active ? colors.dot : 'bg-navy-300'}`} />
+      <span className={`text-xs font-bold ${colors.text}`}>
+        {SAILOR_RANK_LABEL[rank.rank]}
+      </span>
+      <span className="text-[11px] text-navy-500">
+        · {rank.lifetime_hours.toFixed(1)}h
+      </span>
     </div>
   );
 }

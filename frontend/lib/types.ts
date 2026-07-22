@@ -100,6 +100,27 @@ export const CREDENTIAL_TYPE_LABEL: Record<CredentialType, string> = {
   other: 'Otro',
 };
 
+export const WORK_TYPES = [
+  'sailing_school',
+  'club',
+  'federation',
+  'boatyard',
+  'charter',
+  'regatta_org',
+  'other',
+] as const;
+export type WorkType = (typeof WORK_TYPES)[number];
+
+export const WORK_TYPE_LABEL: Record<WorkType, string> = {
+  sailing_school: 'Escuela de vela',
+  club: 'Club náutico',
+  federation: 'Federación',
+  boatyard: 'Yarda / astillero',
+  charter: 'Charter / alquiler',
+  regatta_org: 'Organización de regatas',
+  other: 'Otro',
+};
+
 export const ACHIEVEMENT_TYPES = [
   '1st_place',
   '2nd_place',
@@ -200,6 +221,9 @@ export interface ProfileCv {
   credentials: Credential[];
   achievements: RegattaAchievement[];
   achievements_total: number;
+  work_experience: WorkExperience[];
+  community_achievements: CommunityAchievement[];
+  sailor_rank: SailorRank | null;
 }
 
 export interface SearchResult {
@@ -631,4 +655,116 @@ export interface RegattaHistoryItem {
   position: number | null;
   total_entries: number | null;
   points: number | null;
+}
+
+// ── Work Experience ───────────────────────────────────────
+
+export interface WorkExperience {
+  id: string;
+  user_id: string;
+  role: string;
+  organization: string;
+  location: string | null;
+  work_type: WorkType;
+  start_month: number | null;
+  start_year: number;
+  end_month: number | null;
+  end_year: number | null;
+  description: string | null;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Gamificación comunitaria ───────────────────────────────
+
+export interface SailingHourEntry {
+  id: string;
+  user_id: string;
+  sailed_date: string;
+  hours: number;
+  sailing_class: string | null;
+  boat_id: string | null;
+  regatta_id: string | null;
+  crew_mates: string | null;
+  notes: string | null;
+  source: 'manual' | 'garmin' | 'apple_health' | 'strava' | 'regatta_auto';
+  created_at: string;
+  updated_at: string;
+}
+
+export type SailorRankName = 'apprentice' | 'sailor' | 'helmsman' | 'master' | 'captain';
+
+export const SAILOR_RANK_LABEL: Record<SailorRankName, string> = {
+  apprentice: 'Aprendiz',
+  sailor: 'Marinero',
+  helmsman: 'Timonel',
+  master: 'Patrón',
+  captain: 'Capitán',
+};
+
+export interface SailorRank {
+  lifetime_hours: number;
+  last_30d_hours: number;
+  rank: SailorRankName;
+  maintenance_threshold: number;
+  is_active: boolean;
+}
+
+export const COMMUNITY_ACHIEVEMENT_TYPES = [
+  'first_post',
+  'first_crew_invite_accepted',
+  'event_organized',
+  'event_participant',
+  'mentorship_thank',
+  'classified_matchmaker',
+  'helpful_comment',
+  'sailing_streak_30d',
+  'sailing_streak_90d',
+  'first_sailing_hours',
+  '100_hours',
+  '500_hours',
+  '2000_hours',
+] as const;
+export type CommunityAchievementType = (typeof COMMUNITY_ACHIEVEMENT_TYPES)[number];
+
+export const COMMUNITY_ACHIEVEMENT_LABEL: Record<CommunityAchievementType, string> = {
+  first_post: 'Primera publicación',
+  first_crew_invite_accepted: 'Primera invitación aceptada',
+  event_organized: 'Organizaste una jornada',
+  event_participant: 'Participaste de una jornada',
+  mentorship_thank: 'Gracias de mentoría',
+  classified_matchmaker: 'Conector de clasificados',
+  helpful_comment: 'Comentario útil',
+  sailing_streak_30d: 'Racha 30 días',
+  sailing_streak_90d: 'Racha 90 días',
+  first_sailing_hours: 'Primera salida registrada',
+  '100_hours': '100 horas de mar',
+  '500_hours': '500 horas de mar',
+  '2000_hours': '2000 horas de mar',
+};
+
+export const COMMUNITY_ACHIEVEMENT_ICON: Record<CommunityAchievementType, string> = {
+  first_post: '✍️',
+  first_crew_invite_accepted: '🤝',
+  event_organized: '📅',
+  event_participant: '⛵',
+  mentorship_thank: '🙏',
+  classified_matchmaker: '🔗',
+  helpful_comment: '💬',
+  sailing_streak_30d: '🔥',
+  sailing_streak_90d: '🔥',
+  first_sailing_hours: '🌊',
+  '100_hours': '⏱️',
+  '500_hours': '⏱️',
+  '2000_hours': '⏱️',
+};
+
+export interface CommunityAchievement {
+  id: string;
+  user_id: string;
+  achievement_type: CommunityAchievementType;
+  description: string | null;
+  earned_at: string;
+  created_at: string;
 }
