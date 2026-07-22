@@ -49,6 +49,38 @@ export interface User {
 /** Perfil con el CV cargado, tal como lo devuelve GET /profile/:id. */
 export type ProfileWithCv = User & Partial<ProfileCv>;
 
+// ── Mensajería ──────────────────────────────────────────────
+
+export interface MessageParticipant {
+  id: string;
+  username: string;
+  name: string | null;
+  avatar_url: string | null;
+}
+
+export interface DirectMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string;
+  /** null = sin leer. */
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface Conversation {
+  id: string;
+  last_message_at: string;
+  other: MessageParticipant | null;
+  last_message: DirectMessage | null;
+  unread_count: number;
+}
+
+export interface ConversationThread {
+  conversation: { id: string; other: MessageParticipant | null };
+  messages: DirectMessage[];
+}
+
 // ── CV náutico ──────────────────────────────────────────────
 
 export const CREDENTIAL_TYPES = [

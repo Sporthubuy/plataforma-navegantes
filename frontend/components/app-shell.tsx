@@ -4,7 +4,7 @@ import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { api } from '@/lib/api';
+import { api, BADGE_REFRESH_EVENT } from '@/lib/api';
 import { Avatar } from '@/components/avatar';
 import {
   HomeIcon,
@@ -16,6 +16,7 @@ import {
   ClassifiedIcon,
   CompassIcon,
   CrewIcon,
+  MessageIcon,
   SettingsIcon,
   MoreIcon,
 } from '@/components/nav-icons';
@@ -38,20 +39,41 @@ function useNavItems(): NavItem[] {
   const { user, isAdmin } = useAuth();
   const pathname = usePathname();
   const [pending, setPending] = useState(0);
+  const [unread, setUnread] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!user) return;
-    api
-      .get('/api/crew/invitations')
-      .then((res) => setPending(res.data.invitations.length))
-      .catch(() => setPending(0));
-  }, [user, pathname]);
+    let cancelled = false;
+    // La campana suma lo que requiere atención: invitaciones de
+    // tripulación y mensajes sin leer.
+    Promise.all([
+      api.get('/api/crew/invitations').catch(() => null),
+      api.get('/api/messages/unread').catch(() => null),
+    ]).then(([invitations, messages]) => {
+      if (cancelled) return;
+      setPending(invitations?.data.invitations.length ?? 0);
+      setUnread(messages?.data.unread ?? 0);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, pathname, refreshKey]);
+
+  // Leer un hilo marca los mensajes en el backend: sin esto el badge
+  // quedaría colgado hasta la próxima navegación.
+  useEffect(() => {
+    const bump = () => setRefreshKey((n) => n + 1);
+    window.addEventListener(BADGE_REFRESH_EVENT, bump);
+    return () => window.removeEventListener(BADGE_REFRESH_EVENT, bump);
+  }, []);
 
   return [
     { href: '/home', label: 'Home', icon: HomeIcon },
     { href: '/explore', label: 'Explorar', icon: CompassIcon },
     { href: '/regattas', label: 'Regatas', icon: FlagIcon },
     { href: '/classifieds', label: 'Clasificados', icon: ClassifiedIcon },
+    { href: '/messages', label: 'Mensajes', icon: MessageIcon, badge: unread },
     { href: '/talent', label: 'Tripulación', icon: CrewIcon },
     { href: '/boats', label: 'Barcos', icon: BoatIcon },
     { href: '/invitations', label: 'Alertas', icon: BellIcon, badge: pending },
@@ -289,8 +311,7 @@ export function AppShell({
   width?: keyof typeof WIDTHS;
 }) {
   const items = useNavItems();
-  const notifications =
-    items.find((i) => i.href === '/invitations')?.badge ?? 0;
+  const notifications = items.reduce((total, i) => total + (i.badge ?? 0), 0);
 
   // En móvil, perfil y alertas viven en la top-bar: no se repiten abajo.
   const mobileItems = items.filter(

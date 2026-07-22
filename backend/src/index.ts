@@ -14,6 +14,7 @@ import classifiedsRouter from './routes/classifieds';
 import clubsRouter from './routes/clubs';
 import cvRouter from './routes/cv';
 import searchRouter from './routes/search';
+import messagesRouter from './routes/messages';
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/api/regattas', regattasRouter);
 app.use('/api/classifieds', classifiedsRouter);
 app.use('/api/clubs', clubsRouter);
 app.use('/api/search', searchRouter);
+app.use('/api/messages', messagesRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });

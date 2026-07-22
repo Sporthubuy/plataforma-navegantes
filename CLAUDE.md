@@ -113,6 +113,16 @@ La pantalla es **`/talent`** ("Buscar tripulación"), con filtros por rol, clase
 
 `GET /api/search?type=&class=&availability=&country=&city=&verified=` — parte de `professional_summary` (sin resumen cargado el navegante no se ofreció para nada), filtra solo perfiles públicos y activos, y ordena **verificados primero, después por regatas navegadas**. `seeking_role='ambos'` entra en todas las búsquedas por rol. Es la semilla del sistema de seguimiento y mensajería.
 
+## Mensajería (alcance actual)
+
+Cierra el circuito del buscador: sin esto encontrás a alguien y no tenés cómo escribirle.
+
+- **1 a 1 a propósito.** `conversations` guarda la pareja como `(user_a, user_b)` con `user_a < user_b` y UNIQUE: eso garantiza **una sola conversación por pareja**, sin importar quién escribió primero. Los grupos exigirían invitaciones, nombres y roles, y nada de eso hace falta para "¿te sumás al barco?".
+- **No hay "crear conversación" separado.** `POST /api/messages` con `{recipient_id, body}` la crea si no existía; escribir por primera vez y responder son la misma operación. Absorbe la carrera de dos primeros mensajes simultáneos releyendo la que ganó el UNIQUE.
+- **Un mensaje es la notificación**, así que no hay tabla de avisos aparte. `messages.read_at` (null = sin leer) alimenta el badge de la campana, que suma invitaciones de tripulación + mensajes sin leer.
+- Abrir un hilo (`GET /api/messages/:id`) lo marca leído. Como eso pasa en el backend, el frontend dispara el evento `navegantes:badges` para que el contador no quede colgado hasta la próxima navegación.
+- RLS: solo los dos participantes leen la conversación y sus mensajes. Las escrituras van por el backend con service role, que valida destinatario existente y activo.
+
 ## Convenciones
 
 - **Puertos:** backend en `3001`, frontend en `3000`.

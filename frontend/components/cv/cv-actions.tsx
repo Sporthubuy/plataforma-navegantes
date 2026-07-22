@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import { Download, Mail } from 'lucide-react';
+import { api, getApiError } from '@/lib/api';
 import { Modal } from '@/components/ui/modal';
-import { Button, buttonClasses } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/input';
 import { instagramUrl } from '@/components/profile/profile-extras';
 import type { ProfileWithCv } from '@/lib/types';
 
@@ -40,9 +43,9 @@ function contactLinks(profile: ProfileWithCv) {
 }
 
 /**
- * Contacto: la plataforma todavía no tiene mensajería, así que en vez
- * de inventar un canal se ofrecen los enlaces que el navegante ya
- * publicó y la vía que sí existe hoy (los clasificados).
+ * Contacto: escribe un mensaje directo. Los enlaces públicos siguen
+ * apareciendo debajo como alternativa, pero el canal principal ya vive
+ * dentro de la plataforma.
  */
 function ContactModal({
   profile,
@@ -51,48 +54,67 @@ function ContactModal({
   profile: ProfileWithCv;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const links = contactLinks(profile);
   const name = profile.name || `@${profile.username}`;
+  const [body, setBody] = useState('');
+  const [sending, setSending] = useState(false);
+
+  async function send(e: FormEvent) {
+    e.preventDefault();
+    if (!body.trim()) return;
+    setSending(true);
+    try {
+      const res = await api.post('/api/messages', {
+        recipient_id: profile.id,
+        body: body.trim(),
+      });
+      toast.success('Mensaje enviado');
+      onClose();
+      router.push(`/messages?c=${res.data.conversation_id}`);
+    } catch (err) {
+      toast.error(getApiError(err, 'No se pudo enviar el mensaje'));
+      setSending(false);
+    }
+  }
 
   return (
-    <Modal title={`Contactar a ${name}`} onClose={onClose}>
-      {links.length > 0 ? (
-        <>
-          <p className="text-sm text-navy-600">
-            Estos son los canales que {name} publicó en su perfil:
+    <Modal title={`Escribirle a ${name}`} onClose={onClose}>
+      <form onSubmit={send} className="flex flex-col gap-3">
+        <Textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={5}
+          maxLength={4000}
+          autoFocus
+          placeholder={`Contale a ${name} por qué le escribís: qué barco, qué clase, qué fechas…`}
+        />
+        <Button type="submit" disabled={sending || !body.trim()} fullWidth>
+          {sending ? 'Enviando…' : 'Enviar mensaje'}
+        </Button>
+      </form>
+
+      {links.length > 0 && (
+        <div className="mt-4 border-t border-navy-100 pt-3">
+          <p className="text-xs font-semibold text-navy-500">
+            También podés encontrarlo en:
           </p>
-          <ul className="mt-3 flex flex-col gap-2">
+          <ul className="mt-2 flex flex-wrap gap-2">
             {links.map((link) => (
               <li key={link.href}>
                 <a
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="focus-ring block rounded-lg border border-navy-100 px-3 py-2.5 text-sm font-semibold text-navy-800 hover:border-water-600/30 hover:bg-water-50"
+                  className="focus-ring rounded-lg border border-navy-100 px-2.5 py-1 text-xs font-semibold text-navy-700 hover:bg-navy-50"
                 >
                   {link.label}
                 </a>
               </li>
             ))}
           </ul>
-        </>
-      ) : (
-        <p className="text-sm text-navy-600">
-          {name} todavía no publicó ningún medio de contacto.
-        </p>
+        </div>
       )}
-
-      <p className="mt-4 rounded-lg bg-navy-50 px-3 py-2 text-xs text-navy-500">
-        Todavía no hay mensajería dentro de la plataforma. Mientras tanto,
-        publicar un clasificado es la forma de que te encuentren.
-      </p>
-
-      <Link
-        href="/classifieds/new"
-        className={`${buttonClasses('primary', 'md')} mt-3 w-full`}
-      >
-        Publicar un clasificado
-      </Link>
     </Modal>
   );
 }

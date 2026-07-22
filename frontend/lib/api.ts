@@ -24,3 +24,13 @@ export function getApiError(err: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+/** Nombre del evento que pide recalcular el contador de la campana. */
+export const BADGE_REFRESH_EVENT = 'navegantes:badges';
+
+/** Avisa que algo cambió el contador (leer un hilo, responder…). */
+export function refreshBadges() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(BADGE_REFRESH_EVENT));
+  }
+}
