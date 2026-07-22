@@ -64,9 +64,9 @@ export default function HomePage() {
     <AppShell width="wide">
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8">
         <div className="mx-auto w-full max-w-2xl lg:mx-0">
-          <h1 className="mb-4 text-2xl font-bold text-navy-900 md:text-3xl">
-            Inicio
-          </h1>
+          {/* El nombre de la sección ya está en la navegación: el título
+              queda solo para lectores de pantalla. */}
+          <h1 className="sr-only">Inicio</h1>
 
           <QuickActionBar onNewPost={() => setComposerOpen(true)} />
 

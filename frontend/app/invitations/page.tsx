@@ -60,9 +60,9 @@ export default function InvitationsPage() {
 
   return (
     <AppShell>
-      <h1 className="mb-5 text-2xl font-bold text-navy-900 md:text-3xl">
-        Invitaciones
-      </h1>
+      {/* El nombre de la sección ya está en la navegación: el título
+          queda solo para lectores de pantalla. */}
+      <h1 className="sr-only">Invitaciones</h1>
 
       {invitations === null ? (
         <p className="text-sm text-navy-400">Cargando…</p>

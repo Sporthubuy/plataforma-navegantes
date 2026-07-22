@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Compass } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import { AppShell } from '@/components/app-shell';
@@ -79,16 +79,12 @@ export default function ExplorePage() {
   return (
     <AppShell>
       <div className="mx-auto w-full max-w-2xl">
-        <h1 className="flex items-center gap-2 text-2xl font-bold text-navy-900 md:text-3xl">
-          <Compass className="h-6 w-6 text-water-600" />
-          Explorar
-        </h1>
-        <p className="mt-1 text-sm text-navy-500">
-          Descubrí navegantes, regatas y oportunidades de la comunidad.
-        </p>
+        {/* El nombre de la sección ya está en la navegación: el título
+            queda solo para lectores de pantalla. */}
+        <h1 className="sr-only">Explorar</h1>
 
         <div
-          className="mt-5 flex gap-2 overflow-x-auto"
+          className="flex gap-2 overflow-x-auto"
           style={{ scrollbarWidth: 'none' }}
           role="tablist"
         >

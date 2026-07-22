@@ -7,7 +7,6 @@ import toast from 'react-hot-toast';
 import {
   Bookmark,
   LogOut,
-  Settings as SettingsIcon,
   ShieldAlert,
   UserPen,
 } from 'lucide-react';
@@ -66,12 +65,11 @@ export default function SettingsPage() {
   return (
     <AppShell>
       <div className="mx-auto w-full max-w-2xl">
-        <h1 className="flex items-center gap-2 text-2xl font-bold text-navy-900 md:text-3xl">
-          <SettingsIcon className="h-6 w-6 text-water-600" />
-          Ajustes
-        </h1>
+        {/* El nombre de la sección ya está en la navegación: el título
+            queda solo para lectores de pantalla. */}
+        <h1 className="sr-only">Ajustes</h1>
 
-        <Card className="mt-5">
+        <Card>
           <h2 className="flex items-center gap-2 font-semibold text-navy-900">
             <UserPen className="h-4 w-4 text-navy-400" />
             Cuenta

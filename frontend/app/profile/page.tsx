@@ -269,9 +269,9 @@ export default function ProfilePage() {
 
   return (
     <AppShell>
-      <h1 className="mb-5 text-2xl font-bold text-navy-900 md:text-3xl">
-        Mi perfil
-      </h1>
+      {/* El nombre de la sección ya está en la navegación: el título
+          queda solo para lectores de pantalla. */}
+      <h1 className="sr-only">Mi perfil</h1>
 
       {pendingCount > 0 && (
         <Link

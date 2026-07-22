@@ -44,10 +44,11 @@ export default function BoatsPage() {
 
   return (
     <AppShell>
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-navy-900 md:text-3xl">
-          Mis barcos
-        </h1>
+      {/* El nombre de la sección ya está en la navegación: el título
+          queda solo para lectores de pantalla. */}
+      <h1 className="sr-only">Mis barcos</h1>
+
+      <div className="mb-5 flex items-center justify-end gap-3">
         <Link href="/boats/new" className={buttonClasses('primary', 'sm')}>
           + Agregar barco
         </Link>

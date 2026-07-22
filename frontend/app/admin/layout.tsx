@@ -38,12 +38,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <AppShell width="wide">
-      <header className="mb-4">
-        <h1 className="text-2xl font-bold text-navy-900 md:text-3xl">
-          Administración
-        </h1>
-        <p className="text-sm text-navy-500">Gestión de la plataforma</p>
-      </header>
+      {/* El nombre de la sección ya está en la navegación: el título
+          queda solo para lectores de pantalla. */}
+      <h1 className="sr-only">Administración</h1>
 
       <nav className="mb-6 flex max-w-md gap-1 rounded-xl bg-white p-1 shadow-sm">
         {TABS.map((tab) => {

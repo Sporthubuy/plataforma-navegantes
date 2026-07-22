@@ -59,9 +59,9 @@ export default function RegattasPage() {
 
   return (
     <AppShell width="wide">
-      <h1 className="mb-5 text-2xl font-bold text-navy-900 md:text-3xl">
-        Regatas
-      </h1>
+      {/* El nombre de la sección ya está en la navegación: el título
+          queda solo para lectores de pantalla. */}
+      <h1 className="sr-only">Regatas</h1>
 
       <div className="mb-6 flex flex-col gap-2">
         <input
