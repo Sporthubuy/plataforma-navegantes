@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { MAX_CLASSIFIEDS_PER_PAGE, type FeedItem } from '@/types/feed';
 import type {
   Classified,
+  CommunityActivity,
   Invitation,
   Post,
   Regatta,
@@ -67,7 +68,7 @@ export function useFeed(enabled: boolean) {
   const fetchFirstPage = useCallback(async (): Promise<FeedState> => {
     try {
       // Todo en paralelo: el feed no debe esperar en cascada.
-      const [posts, regattas, classifieds, invitations, history] =
+      const [posts, regattas, classifieds, invitations, activities, history] =
         await Promise.all([
           api.get('/api/posts', { params: { limit: PAGE_SIZE, offset: 0 } }),
           api.get('/api/regattas', { params: { limit: 5 } }).catch(() => null),
@@ -75,6 +76,9 @@ export function useFeed(enabled: boolean) {
             .get('/api/classifieds', { params: { limit: 5, status: 'active' } })
             .catch(() => null),
           api.get('/api/crew/invitations').catch(() => null),
+          api
+            .get('/api/community/activities', { params: { limit: 8 } })
+            .catch(() => null),
           api.get('/api/users/me').then(
             (me) =>
               api
@@ -110,6 +114,13 @@ export function useFeed(enabled: boolean) {
         data: i,
       }));
 
+      const activityItems: FeedItem[] = ((activities?.data.activities ??
+        []) as CommunityActivity[]).map((a) => ({
+        id: `activity-${a.id}`,
+        type: 'activity',
+        data: a,
+      }));
+
       const achievementItems: FeedItem[] = ((history?.data.history ??
         []) as RegattaHistoryItem[])
         .filter((h) => h.position != null)
@@ -123,6 +134,7 @@ export function useFeed(enabled: boolean) {
       const mixed = interleave([
         ...inviteItems,
         ...achievementItems,
+        ...activityItems,
         ...regattaItems,
         ...classifiedItems,
         ...postItems,

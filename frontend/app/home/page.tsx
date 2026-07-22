@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import { AppShell } from '@/components/app-shell';
+import { SailingHoursModal } from '@/components/cv/cv-modals';
 import { FeedComposer } from '@/components/feed/feed-composer';
 import { FeedCard } from '@/components/feed/feed-card';
 import { FeedSkeleton } from '@/components/feed/feed-skeleton';
@@ -21,6 +22,7 @@ export default function HomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [composerOpen, setComposerOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
 
   // Datos que alimentan la columna derecha.
   const [regattas, setRegattas] = useState<Regatta[]>([]);
@@ -68,7 +70,10 @@ export default function HomePage() {
               queda solo para lectores de pantalla. */}
           <h1 className="sr-only">Inicio</h1>
 
-          <FeedComposer onNewPost={() => setComposerOpen(true)} />
+          <FeedComposer
+            onNewPost={() => setComposerOpen(true)}
+            onNewActivity={() => setActivityOpen(true)}
+          />
 
           <div className="mt-4" />
 
@@ -126,6 +131,17 @@ export default function HomePage() {
           location={user.city}
         />
       </div>
+
+      {activityOpen && user && (
+        <SailingHoursModal
+          userId={user.id}
+          onClose={() => setActivityOpen(false)}
+          onSaved={() => {
+            // La salida recién publicada tiene que verse en el feed.
+            feed.reload();
+          }}
+        />
+      )}
 
       {composerOpen && (
         <PostComposer

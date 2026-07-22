@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Pencil, Anchor, Flag, Megaphone, Users } from 'lucide-react';
+import { Waves, Plus, Pencil, Anchor, Flag, Megaphone, Users } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { Avatar } from '@/components/avatar';
@@ -12,6 +12,8 @@ interface QuickAction {
   href?: string;
   onClick?: () => void;
   permission?: string;
+  /** La acción principal del inicio se destaca del resto. */
+  highlight?: boolean;
 }
 
 /**
@@ -24,10 +26,18 @@ interface QuickAction {
  * texto+icono alineado a la izquierda. En desktop se distribuyen con
  * flex-wrap; en mobile van en una fila con scroll horizontal sutil.
  */
-export function FeedComposer({ onNewPost }: { onNewPost: () => void }) {
+export function FeedComposer({
+  onNewPost,
+  onNewActivity,
+}: {
+  onNewPost: () => void;
+  onNewActivity: () => void;
+}) {
   const { user, hasPermission } = useAuth();
 
   const actions: QuickAction[] = [
+    // Registrar la salida es la acción que hace comunidad: va primera.
+    { label: 'Salida', icon: Waves, onClick: onNewActivity, highlight: true },
     { label: 'Entrada', icon: Pencil, onClick: onNewPost },
     { label: 'Barco', icon: Anchor, href: '/boats/new' },
     {
@@ -72,8 +82,17 @@ export function FeedComposer({ onNewPost }: { onNewPost: () => void }) {
         className="flex gap-1.5 overflow-x-auto"
         style={{ scrollbarWidth: 'none' }}
       >
-        {actions.map(({ label, icon: Icon, href, onClick }) => {
-          const content = (
+        {actions.map(({ label, icon: Icon, href, onClick, highlight }) => {
+          const content = highlight ? (
+            // Registrar la salida es la acción principal del inicio.
+            <span className="focus-ring flex shrink-0 items-center gap-2 rounded-lg bg-navy-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-navy-800">
+              <span className="relative flex items-center">
+                <Icon className="h-4 w-4" />
+                <Plus className="absolute -top-1.5 -right-2 h-3 w-3" />
+              </span>
+              {label}
+            </span>
+          ) : (
             <span className="focus-ring flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-navy-700 transition hover:bg-navy-50">
               <Icon className="h-4 w-4 text-navy-500" />
               {label}

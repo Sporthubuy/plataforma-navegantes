@@ -489,6 +489,7 @@ export function SailingHoursModal({
 }) {
   const [sailedDate, setSailedDate] = useState(new Date().toISOString().slice(0, 10));
   const [hours, setHours] = useState('');
+  const [distanceNm, setDistanceNm] = useState('');
   const [sailingClass, setSailingClass] = useState('');
   const [crewMates, setCrewMates] = useState('');
   const [notes, setNotes] = useState('');
@@ -506,6 +507,7 @@ export function SailingHoursModal({
       const res = await api.post(`/api/users/profile/${userId}/sailing-hours`, {
         sailed_date: sailedDate,
         hours: parsedHours,
+        distance_nm: distanceNm.trim() || null,
         sailing_class: sailingClass.trim() || null,
         crew_mates: crewMates.trim() || null,
         notes: notes.trim() || null,
@@ -549,6 +551,18 @@ export function SailingHoursModal({
             />
           </Field>
         </div>
+
+        <Field
+          label="Millas náuticas"
+          hint="Es el número que se muestra en tu perfil y en el feed."
+        >
+          <Input
+            value={distanceNm}
+            onChange={(e) => setDistanceNm(e.target.value)}
+            inputMode="decimal"
+            placeholder="18.5"
+          />
+        </Field>
 
         <Field label="Clase / barco">
           <Select

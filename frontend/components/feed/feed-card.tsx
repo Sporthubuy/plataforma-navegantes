@@ -2,6 +2,7 @@
 
 import { PostCard } from './post-card';
 import { FeedRegattaCard } from './regatta-card';
+import { ActivityCard } from './activity-card';
 import { FeedClassifiedCard } from './classified-feed-card';
 import { CrewInviteCard } from './crew-invite-card';
 import { AchievementCard } from './achievement-card';
@@ -35,5 +36,7 @@ export function FeedCard({
       );
     case 'achievement':
       return <AchievementCard item={item.data} />;
+    case 'activity':
+      return <ActivityCard activity={item.data} />;
   }
 }

@@ -21,7 +21,7 @@ import { isNonEmptyString } from '../lib/validation';
 const router = Router();
 
 export const SAILING_HOURS_FIELDS =
-  'id, user_id, sailed_date, hours, sailing_class, boat_id, regatta_id, crew_mates, notes, source, created_at, updated_at';
+  'id, user_id, sailed_date, hours, distance_nm, is_public, sailing_class, boat_id, regatta_id, crew_mates, notes, source, created_at, updated_at';
 
 export const COMMUNITY_ACHIEVEMENT_FIELDS =
   'id, user_id, achievement_type, description, earned_at, created_at';
@@ -90,6 +90,19 @@ router.post(
       return res.status(422).json({ error: 'Las horas deben estar entre 0 y 24' });
     }
 
+    // Millas náuticas: es la métrica que se muestra, pero se puede
+    // registrar una salida sin haberlas medido.
+    let distanceNm: number | null = null;
+    if (body.distance_nm !== undefined && body.distance_nm !== null && body.distance_nm !== '') {
+      const parsed = Number(body.distance_nm);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 99999.9) {
+        return res
+          .status(422)
+          .json({ error: 'Las millas náuticas deben ser un número entre 0 y 99999,9' });
+      }
+      distanceNm = Math.round(parsed * 10) / 10;
+    }
+
     const source =
       typeof body.source === 'string' && (SAILING_SOURCES as readonly string[]).includes(body.source)
         ? body.source
@@ -110,6 +123,10 @@ router.post(
       user_id: userId,
       sailed_date: body.sailed_date,
       hours: Math.round(hours * 10) / 10,
+      distance_nm: distanceNm,
+      // Las salidas alimentan el feed de la comunidad; se puede optar
+      // por no compartir una en particular.
+      is_public: body.is_public !== false,
       sailing_class: cleanText(body.sailing_class, 60),
       boat_id: body.boat_id || null,
       regatta_id: body.regatta_id || null,

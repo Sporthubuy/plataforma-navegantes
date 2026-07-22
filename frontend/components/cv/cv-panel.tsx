@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Sailboat, Trophy } from 'lucide-react';
+import { Plus, Trophy } from 'lucide-react';
 import { api, getApiError } from '@/lib/api';
 import { EmptyState } from '@/components/empty-state';
 import { AchievementTimeline } from './achievement-timeline';
@@ -11,18 +11,14 @@ import {
   CredentialModal,
   ManualAchievementModal,
   WorkExperienceModal,
-  SailingHoursModal,
-  CommunityAchievementBadges,
 } from './cv-modals';
-import { RankBadge } from '@/components/profile/profile-extras';
 import {
   CertifiedCoachBanner,
   CvCredentials,
   CvSpecialties,
-  CvStats,
 } from './cv-sections';
 import { ProfileSection } from '@/components/profile/profile-section';
-import type { ProfileWithCv, SailingHourEntry } from '@/lib/types';
+import type { ProfileWithCv } from '@/lib/types';
 
 function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
@@ -60,29 +56,7 @@ export function CvPanel({
   const [credentialModal, setCredentialModal] = useState(false);
   const [achievementModal, setAchievementModal] = useState(false);
   const [workModal, setWorkModal] = useState(false);
-  const [sailingModal, setSailingModal] = useState(false);
-  const [sailingHours, setSailingHours] = useState<SailingHourEntry[]>([]);
-  const [hoursLoading, setHoursLoading] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetch = async () => {
-      setHoursLoading(true);
-      try {
-        const res = await api.get(`/api/users/profile/${profile.id}/sailing-hours?limit=5`);
-        if (!cancelled) setSailingHours(res.data.entries ?? []);
-      } catch {
-        // ignore
-      } finally {
-        if (!cancelled) setHoursLoading(false);
-      }
-    };
-    fetch();
-    return () => { cancelled = true; };
-  }, [profile.id]);
-
   const summary = profile.professional_summary ?? null;
-  const stats = profile.achievement_stats;
   const credentials = profile.credentials ?? [];
   const achievements = profile.achievements ?? [];
   const work = profile.work_experience ?? [];
@@ -145,63 +119,12 @@ export function CvPanel({
         </ProfileSection>
       )}
 
-      {stats && (
-        <ProfileSection title="Trayectoria">
-          <CvStats stats={stats} />
-        </ProfileSection>
-      )}
-
       {summary && (
         <ProfileSection title="Especialidades y disponibilidad">
           <CvSpecialties summary={summary} />
         </ProfileSection>
       )}
 
-      {/* ─── Actividad: rango, horas de mar y logros comunitarios ─── */}
-      <ProfileSection
-        title="Actividad"
-        action={
-          isOwner && (
-            <AddButton label="Registrar salida" onClick={() => setSailingModal(true)} />
-          )
-        }
-      >
-        <div className="flex flex-col gap-4">
-          {profile.sailor_rank && <RankBadge rank={profile.sailor_rank} />}
-
-          {sailingHours.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-semibold text-navy-500 uppercase tracking-wide">Últimas salidas</p>
-              <div className="flex flex-col gap-2">
-                {sailingHours.slice(0, 3).map((e) => (
-                  <div key={e.id} className="flex items-center justify-between rounded-lg bg-navy-50 px-3 py-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Sailboat className="h-4 w-4 text-navy-400" />
-                      <span className="text-navy-700">
-                        {new Date(e.sailed_date).toLocaleDateString('es-UY', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </span>
-                      {e.sailing_class && (
-                        <span className="text-navy-400">· {e.sailing_class}</span>
-                      )}
-                    </div>
-                    <span className="font-medium text-navy-800">{e.hours}h</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {!hoursLoading && sailingHours.length === 0 && !profile.sailor_rank && (
-            <p className="text-sm text-navy-400">
-              {isOwner
-                ? 'Registrá tus primeras horas de navegación para empezar a sumar.'
-                : 'Este navegante todavía no registró actividad.'}
-            </p>
-          )}
-
-          <CommunityAchievementBadges achievements={profile.community_achievements ?? []} />
-        </div>
-      </ProfileSection>
 
       <ProfileSection
         title="Títulos y certificaciones"
@@ -287,16 +210,6 @@ export function CvPanel({
         />
       )}
 
-      {sailingModal && (
-        <SailingHoursModal
-          userId={profile.id}
-          onClose={() => setSailingModal(false)}
-          onSaved={(entry) => {
-            setSailingHours((prev) => [entry, ...prev].slice(0, 5));
-            onRefresh();
-          }}
-        />
-      )}
     </div>
   );
 }

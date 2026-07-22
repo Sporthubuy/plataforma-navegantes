@@ -10,17 +10,22 @@ import { Avatar } from '@/components/avatar';
 import { Card } from '@/components/ui/card';
 import { CvPanel } from '@/components/cv/cv-panel';
 import { CvActions } from '@/components/cv/cv-actions';
+import {
+  CommunityStats,
+  FollowButton,
+  type CommunityStatsData,
+} from '@/components/community/community-stats';
 import { CvSpecialties, VerifiedBadge } from '@/components/cv/cv-sections';
 import { SocialLinks, RankBadge, formatMembership } from '@/components/profile/profile-extras';
 import { formatLocation } from '@/lib/geo';
-import type { ProfileStats, ProfileWithCv } from '@/lib/types';
+import type { ProfileWithCv } from '@/lib/types';
 
 export default function PublicProfilePage() {
   const params = useParams<{ id: string }>();
   const { user } = useAuth();
 
   const [profile, setProfile] = useState<ProfileWithCv | null>(null);
-  const [stats, setStats] = useState<ProfileStats | null>(null);
+  const [community, setCommunity] = useState<CommunityStatsData | null>(null);
   const [visible, setVisible] = useState(true);
 
   const load = useCallback(() => {
@@ -32,13 +37,19 @@ export default function PublicProfilePage() {
         setVisible(res.data.visible !== false);
       })
       .catch(() => setProfile(null));
+  }, [params.id]);
+
+  // Los números de comunidad se recargan solos al seguir/dejar de seguir.
+  const loadCommunity = useCallback(() => {
+    if (!params.id) return;
     api
-      .get(`/api/users/profile/${params.id}/stats`)
-      .then((res) => setStats(res.data))
-      .catch(() => setStats(null));
+      .get(`/api/community/${params.id}/stats`)
+      .then((res) => setCommunity(res.data.stats))
+      .catch(() => setCommunity(null));
   }, [params.id]);
 
   useEffect(load, [load]);
+  useEffect(loadCommunity, [loadCommunity]);
 
   if (!profile) {
     return <AppShell><p className="text-navy-400">Cargando perfil…</p></AppShell>;
@@ -90,29 +101,19 @@ export default function PublicProfilePage() {
                 {profile.sailor_rank && <RankBadge rank={profile.sailor_rank} />}
               </div>
 
-              {stats && (
-                <div className="mt-4 flex justify-center gap-6 text-center">
-                  <div>
-                    <p className="text-lg font-bold text-navy-900">{stats.boats_owned}</p>
-                    <p className="text-[11px] text-navy-400">Barcos</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-navy-900">{stats.crews_joined}</p>
-                    <p className="text-[11px] text-navy-400">Tripulaciones</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-navy-900">{profile.credentials?.length ?? 0}</p>
-                    <p className="text-[11px] text-navy-400">Títulos</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-navy-900">{profile.achievements?.length ?? 0}</p>
-                    <p className="text-[11px] text-navy-400">Regatas</p>
-                  </div>
+              {community && (
+                <div className="mt-4">
+                  <CommunityStats userId={profile.id} stats={community} />
                 </div>
               )}
 
               {visible && (
                 <div className="mt-4 flex flex-col gap-2">
+                  {!isOwner && (
+                    <div className="flex gap-2">
+                      <FollowButton userId={profile.id} onChange={loadCommunity} />
+                    </div>
+                  )}
                   <CvActions profile={profile} isOwner={isOwner} />
                 </div>
               )}

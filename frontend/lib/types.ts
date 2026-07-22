@@ -49,6 +49,32 @@ export interface User {
 /** Perfil con el CV cargado, tal como lo devuelve GET /profile/:id. */
 export type ProfileWithCv = User & Partial<ProfileCv>;
 
+// ── Comunidad ───────────────────────────────────────────────
+
+/** Una salida publicada en el feed del inicio. */
+export interface CommunityActivity {
+  id: string;
+  user_id: string;
+  sailed_date: string;
+  hours: number;
+  /** Millas náuticas: la métrica que se muestra. */
+  distance_nm: number | null;
+  sailing_class: string | null;
+  notes: string | null;
+  crew_mates: string | null;
+  boat_id: string | null;
+  is_public: boolean;
+  created_at: string;
+  user: {
+    id: string;
+    username: string;
+    name: string | null;
+    avatar_url: string | null;
+    verified_badge: boolean;
+  } | null;
+  boat: { id: string; name: string; category: string } | null;
+}
+
 // ── Mensajería ──────────────────────────────────────────────
 
 export interface MessageParticipant {
