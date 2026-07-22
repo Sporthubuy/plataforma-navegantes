@@ -31,6 +31,15 @@ export interface PostAuthor {
   avatar_url: string | null;
 }
 
+export interface PostComment {
+  id: string;
+  content: string;
+  created_at: string;
+  post_id: string;
+  author_id: string;
+  author: PostAuthor | null;
+}
+
 export interface Post {
   id: string;
   title: string;
@@ -41,6 +50,12 @@ export interface Post {
   author_id: string;
   author: PostAuthor | null;
   comment_count?: number;
+  // Engagement (lo calcula el backend en los GET de posts).
+  likes_count?: number;
+  comments_count?: number;
+  liked_by_me?: boolean;
+  saved_by_me?: boolean;
+  recent_comments?: PostComment[];
 }
 
 export interface Pagination {

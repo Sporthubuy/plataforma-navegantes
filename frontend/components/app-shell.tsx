@@ -14,6 +14,8 @@ import {
   AnchorIcon,
   FlagIcon,
   ClassifiedIcon,
+  CompassIcon,
+  SettingsIcon,
   MoreIcon,
 } from '@/components/nav-icons';
 
@@ -46,6 +48,7 @@ function useNavItems(): NavItem[] {
 
   return [
     { href: '/home', label: 'Home', icon: HomeIcon },
+    { href: '/explore', label: 'Explorar', icon: CompassIcon },
     { href: '/regattas', label: 'Regatas', icon: FlagIcon },
     { href: '/classifieds', label: 'Clasificados', icon: ClassifiedIcon },
     { href: '/boats', label: 'Barcos', icon: BoatIcon },
@@ -54,6 +57,7 @@ function useNavItems(): NavItem[] {
       ? [{ href: '/admin', label: 'Admin', icon: ShieldIcon }]
       : []),
     { href: '/profile', label: 'Perfil', icon: AnchorIcon },
+    { href: '/settings', label: 'Ajustes', icon: SettingsIcon },
   ];
 }
 

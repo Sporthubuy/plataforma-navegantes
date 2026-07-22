@@ -20,6 +20,26 @@ export function HomeIcon({ active, className = 'h-6 w-6' }: IconProps) {
   );
 }
 
+export function CompassIcon({ active, className = 'h-6 w-6' }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={active ? 2.4 : 1.8}
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill={active ? 'currentColor' : 'none'}
+        d="m15.5 8.5-2 5-5 2 2-5 5-2Z"
+      />
+    </svg>
+  );
+}
+
 export function BoatIcon({ active, className = 'h-6 w-6' }: IconProps) {
   return (
     <svg
@@ -135,6 +155,25 @@ export function AnchorIcon({ active, className = 'h-6 w-6' }: IconProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
         d="M12 7.5V21m0 0c-4.5 0-8-3-8.5-7M12 21c4.5 0 8-3 8.5-7M2 12.5 3.5 14M22 12.5 20.5 14M9 10.5h6"
+      />
+    </svg>
+  );
+}
+
+export function SettingsIcon({ active, className = 'h-6 w-6' }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={active ? 2.4 : 1.8}
+    >
+      <circle cx="12" cy="12" r="3.2" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.4 14.5a1.5 1.5 0 0 0 .3 1.7l.1.1a1.8 1.8 0 1 1-2.5 2.5l-.1-.1a1.5 1.5 0 0 0-2.5 1v.2a1.8 1.8 0 1 1-3.6 0v-.1a1.5 1.5 0 0 0-2.6-1l-.1.1A1.8 1.8 0 1 1 5.8 16.4l.1-.1a1.5 1.5 0 0 0-1-2.5H4.7a1.8 1.8 0 0 1 0-3.6h.1a1.5 1.5 0 0 0 1-2.6l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.5 1.5 0 0 0 1.7.3h.1a1.5 1.5 0 0 0 .9-1.4V4a1.8 1.8 0 1 1 3.6 0v.1a1.5 1.5 0 0 0 2.6 1l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.5 1.5 0 0 0 1 2.6h.2a1.8 1.8 0 0 1 0 3.6h-.1a1.5 1.5 0 0 0-1.4.9Z"
       />
     </svg>
   );

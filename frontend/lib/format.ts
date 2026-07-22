@@ -34,6 +34,49 @@ export function timeAgo(iso: string | null | undefined): string {
   return formatDate(iso);
 }
 
+/**
+ * Tiempo relativo detallado en español: "hace 15 minutos", "hace 2
+ * horas", "ayer", "hace 3 días". Más expresivo que `timeAgo`, que
+ * abrevia ("hace 2 h") para espacios chicos.
+ */
+export function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return 'nunca';
+  const date = new Date(iso);
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+
+  if (diffMin < 1) return 'recién';
+  if (diffMin < 60) return `hace ${diffMin} ${diffMin === 1 ? 'minuto' : 'minutos'}`;
+
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `hace ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return 'ayer';
+  if (diffDays < 30) return `hace ${diffDays} días`;
+
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 12)
+    return `hace ${diffMonths} ${diffMonths === 1 ? 'mes' : 'meses'}`;
+
+  const diffYears = Math.floor(diffMonths / 12);
+  return `hace ${diffYears} ${diffYears === 1 ? 'año' : 'años'}`;
+}
+
+/** ¿La fecha es de las últimas 24 horas? (badge "Nuevo"). */
+export function isRecent(iso: string | null | undefined, hours = 24): boolean {
+  if (!iso) return false;
+  return Date.now() - new Date(iso).getTime() < hours * 3600_000;
+}
+
+/** Fecha corta para badges: "15 ago". */
+export function formatShortDate(iso: string): string {
+  return new Date(iso + (iso.length === 10 ? 'T00:00:00' : '')).toLocaleDateString(
+    'es',
+    { day: 'numeric', month: 'short' }
+  );
+}
+
 /** Rango de fechas: "1–3 ago 2026" o "30 jul – 2 ago 2026". */
 export function formatDateRange(startIso: string, endIso: string): string {
   const start = new Date(startIso + 'T00:00:00');

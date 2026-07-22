@@ -33,6 +33,34 @@ html {
   overflow-x: hidden;
 }
 
+/* Aparición suave de estados vacíos y tarjetas del feed. */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 body {
   background:
     radial-gradient(circle at 92% -10%, rgba(143, 201, 205, 0.2), transparent 30rem),
