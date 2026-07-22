@@ -47,7 +47,8 @@ export function QuickActionBar({ onNewPost }: { onNewPost: () => void }) {
     'focus-ring flex shrink-0 items-center gap-2 rounded-full border border-navy-100 bg-white px-3.5 py-2 text-sm font-semibold text-navy-700 shadow-sm transition duration-200 hover:border-water-600/30 hover:bg-water-50 hover:text-water-600';
 
   return (
-    <div className="sticky top-0 z-30 -mx-4 mb-5 border-b border-navy-100/70 bg-white/80 px-4 py-3 backdrop-blur-md md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+    // En móvil se pega justo debajo de la top-bar; en desktop, arriba de todo.
+    <div className="sticky top-mobile-header z-20 -mx-4 mb-5 border-b border-navy-100/70 bg-white/80 px-4 py-3 backdrop-blur-md md:-mx-6 md:px-6 lg:top-0 lg:-mx-8 lg:px-8">
       <div
         className="flex gap-2 overflow-x-auto md:flex-wrap md:overflow-visible"
         style={{ scrollbarWidth: 'none' }}

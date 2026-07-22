@@ -103,3 +103,12 @@ textarea {
 @utility h-safe-bottom {
   height: calc(4rem + env(safe-area-inset-bottom));
 }
+
+/* Alto de la top-bar móvil (3.5rem) + notch. La usan el padding del
+   contenido y el offset de los elementos sticky que quedan debajo. */
+@utility pt-mobile-header {
+  padding-top: calc(3.5rem + env(safe-area-inset-top) + 1.5rem);
+}
+@utility top-mobile-header {
+  top: calc(3.5rem + env(safe-area-inset-top));
+}

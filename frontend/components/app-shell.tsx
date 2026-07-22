@@ -150,6 +150,63 @@ function Sidebar({ items }: { items: NavItem[] }) {
   );
 }
 
+/**
+ * Top-bar fija — solo en móvil/tablet (< lg). Estructura tipo LinkedIn:
+ * avatar a la izquierda, logo al medio y notificaciones a la derecha.
+ */
+function MobileTopBar({ notifications }: { notifications: number }) {
+  const { user } = useAuth();
+  const pathname = usePathname();
+  const alertsActive = isActive(pathname, '/invitations');
+
+  return (
+    <header className="fixed inset-x-0 top-0 z-30 border-b border-navy-100 bg-white/95 pt-safe backdrop-blur lg:hidden">
+      <div className="flex h-14 items-center justify-between px-4">
+        <Link
+          href="/profile"
+          aria-label="Mi perfil"
+          className="focus-ring rounded-full"
+        >
+          {user ? (
+            <Avatar
+              src={user.avatar_url}
+              name={user.username}
+              className="h-9 w-9 text-sm"
+            />
+          ) : (
+            <span className="block h-9 w-9 rounded-full bg-navy-100" />
+          )}
+        </Link>
+
+        <Link
+          href="/home"
+          className="focus-ring absolute left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-lg text-base font-bold tracking-tight text-navy-950"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-navy-900 text-sm text-white">
+            ⚓
+          </span>
+          Navegantes
+        </Link>
+
+        <Link
+          href="/invitations"
+          aria-label={
+            notifications > 0
+              ? `Notificaciones (${notifications} sin leer)`
+              : 'Notificaciones'
+          }
+          className={`focus-ring relative rounded-xl p-1.5 ${
+            alertsActive ? 'text-water-600' : 'text-navy-500 hover:bg-navy-50'
+          }`}
+        >
+          <BellIcon active={alertsActive} className="h-6 w-6" />
+          <Badge value={notifications} />
+        </Link>
+      </div>
+    </header>
+  );
+}
+
 /** Bottom-nav fija — solo en móvil/tablet (< lg). */
 function BottomNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
@@ -230,18 +287,26 @@ export function AppShell({
   width?: keyof typeof WIDTHS;
 }) {
   const items = useNavItems();
+  const notifications =
+    items.find((i) => i.href === '/invitations')?.badge ?? 0;
+
+  // En móvil, perfil y alertas viven en la top-bar: no se repiten abajo.
+  const mobileItems = items.filter(
+    (i) => i.href !== '/profile' && i.href !== '/invitations'
+  );
 
   return (
     <>
       <Sidebar items={items} />
+      <MobileTopBar notifications={notifications} />
       <div className="flex min-h-screen flex-col lg:pl-[var(--sidebar-width)]">
         <main
-          className={`mx-auto w-full flex-1 px-4 pt-6 pb-24 md:px-6 lg:px-8 lg:pt-10 lg:pb-12 ${WIDTHS[width]}`}
+          className={`mx-auto w-full flex-1 px-4 pt-mobile-header pb-24 md:px-6 lg:px-8 lg:pt-10 lg:pb-12 ${WIDTHS[width]}`}
         >
           {children}
         </main>
       </div>
-      <BottomNav items={items} />
+      <BottomNav items={mobileItems} />
     </>
   );
 }
