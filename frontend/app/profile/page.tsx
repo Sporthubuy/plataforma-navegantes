@@ -23,6 +23,7 @@ import {
   StatsStrip,
 } from '@/components/profile/profile-extras';
 import { CvPanel } from '@/components/cv/cv-panel';
+import { CvActions } from '@/components/cv/cv-actions';
 import { VerifiedBadge } from '@/components/cv/cv-sections';
 import type { MyBoat, ProfileStats, ProfileWithCv, AvailabilityStatus } from '@/lib/types';
 import { AVAILABILITY_STATUSES, AVAILABILITY_LABEL, SEEKING_ROLES, SEEKING_ROLE_LABEL } from '@/lib/types';
@@ -665,6 +666,10 @@ export default function ProfilePage() {
               <Button onClick={startEditing} fullWidth className="mt-5">
                 Editar perfil
               </Button>
+
+              <div className="w-full">
+                <CvActions profile={shown} isOwner />
+              </div>
             </>
           )}
         </Card>

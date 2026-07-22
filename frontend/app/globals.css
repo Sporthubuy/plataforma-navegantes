@@ -112,3 +112,27 @@ textarea {
 @utility top-mobile-header {
   top: calc(3.5rem + env(safe-area-inset-top));
 }
+
+/* Impresión: "Descargar CV" usa el diálogo del navegador, así que la
+   página tiene que quedar limpia de navegación y controles. */
+@media print {
+  aside,
+  header,
+  nav,
+  button,
+  .print\:hidden {
+    display: none !important;
+  }
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  body {
+    background: white !important;
+  }
+  /* Un logro cortado a la mitad entre dos hojas se lee mal. */
+  li,
+  section {
+    break-inside: avoid;
+  }
+}

@@ -10,6 +10,7 @@ import { AppShell } from '@/components/app-shell';
 import { Avatar } from '@/components/avatar';
 import { Card } from '@/components/ui/card';
 import { CvPanel } from '@/components/cv/cv-panel';
+import { CvActions } from '@/components/cv/cv-actions';
 import { CvSpecialties, VerifiedBadge } from '@/components/cv/cv-sections';
 import { formatLocation } from '@/lib/geo';
 import type { ProfileStats, ProfileWithCv } from '@/lib/types';
@@ -114,6 +115,8 @@ export default function PublicProfilePage() {
                 {profile.bio}
               </p>
             )}
+
+            {visible && <CvActions profile={profile} isOwner={isOwner} />}
           </div>
         </Card>
 

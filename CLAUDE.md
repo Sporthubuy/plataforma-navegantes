@@ -109,6 +109,8 @@ El perfil de navegante funciona como un CV profesional: además de los datos per
 
 ### Buscador de talento
 
+La pantalla es **`/talent`** ("Buscar tripulación"), con filtros por rol, clase, disponibilidad, país/ciudad y solo verificados.
+
 `GET /api/search?type=&class=&availability=&country=&city=&verified=` — parte de `professional_summary` (sin resumen cargado el navegante no se ofreció para nada), filtra solo perfiles públicos y activos, y ordena **verificados primero, después por regatas navegadas**. `seeking_role='ambos'` entra en todas las búsquedas por rol. Es la semilla del sistema de seguimiento y mensajería.
 
 ## Convenciones

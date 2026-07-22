@@ -39,7 +39,7 @@ export function QuickActionBar({ onNewPost }: { onNewPost: () => void }) {
     {
       label: 'Buscar tripulación',
       icon: Users,
-      href: '/classifieds?category=tripulante',
+      href: '/talent',
     },
   ].filter((a) => !a.permission || hasPermission(a.permission));
 

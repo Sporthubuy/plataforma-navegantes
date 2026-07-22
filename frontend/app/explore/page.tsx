@@ -120,6 +120,18 @@ export default function ExplorePage() {
                 />
               </div>
 
+              <p className="mt-2 text-xs text-navy-400">
+                ¿Buscás por clase, zona o disponibilidad en vez de por
+                nombre?{' '}
+                <Link
+                  href="/talent"
+                  className="font-semibold text-water-600 hover:underline"
+                >
+                  Usá el buscador de tripulación
+                </Link>
+                .
+              </p>
+
               <div className="mt-4 flex flex-col gap-2">
                 {query.trim().length < 2 ? (
                   <p className="text-sm text-navy-400">

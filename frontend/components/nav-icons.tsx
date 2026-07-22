@@ -178,3 +178,21 @@ export function SettingsIcon({ active, className = 'h-6 w-6' }: IconProps) {
     </svg>
   );
 }
+
+export function CrewIcon({ active, className = 'h-6 w-6' }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={active ? 2.4 : 1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+      <path d="M16.5 5.5a3 3 0 0 1 0 5.6M18 20a6.5 6.5 0 0 0-3-5.5" />
+    </svg>
+  );
+}

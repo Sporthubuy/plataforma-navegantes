@@ -15,6 +15,7 @@ import {
   FlagIcon,
   ClassifiedIcon,
   CompassIcon,
+  CrewIcon,
   SettingsIcon,
   MoreIcon,
 } from '@/components/nav-icons';
@@ -51,6 +52,7 @@ function useNavItems(): NavItem[] {
     { href: '/explore', label: 'Explorar', icon: CompassIcon },
     { href: '/regattas', label: 'Regatas', icon: FlagIcon },
     { href: '/classifieds', label: 'Clasificados', icon: ClassifiedIcon },
+    { href: '/talent', label: 'Tripulación', icon: CrewIcon },
     { href: '/boats', label: 'Barcos', icon: BoatIcon },
     { href: '/invitations', label: 'Alertas', icon: BellIcon, badge: pending },
     ...(isAdmin
