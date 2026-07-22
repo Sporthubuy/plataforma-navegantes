@@ -4,13 +4,14 @@ import { requireAuth } from '../middleware/auth';
 import { asyncHandler } from '../lib/async-handler';
 import { isNonEmptyString } from '../lib/validation';
 import { extForMime, imageUpload } from '../lib/upload';
+import { sanitizeLocation } from '../lib/location';
 
 const router = Router();
 
 const BOAT_FIELDS = `
   id, name, sail_number, category, photo_url, owner_id, created_at, updated_at,
   builder, model, designer, year_built, hull_material,
-  registration_number, home_port, flag,
+  registration_number, flag, club_id, club:clubs(id, name, short_name, country, city),
   rating_system, rating_value, crew_capacity
 `;
 const BOAT_WITH_OWNER = `${BOAT_FIELDS}, owner:profiles(id, username, name, avatar_url)`;
@@ -31,7 +32,6 @@ const TEXT_DETAILS: Record<string, number> = {
   model: 100,
   designer: 100,
   registration_number: 50,
-  home_port: 100,
 };
 
 type DetailsResult =
@@ -201,6 +201,12 @@ router.post(
       return res.status(400).json({ error: details.error });
     }
 
+    // Club base: se valida que exista antes de tocar la FK.
+    const location = await sanitizeLocation(req.body ?? {}, { withClub: true, withCountryCity: false });
+    if ('error' in location) {
+      return res.status(location.error.status).json({ error: location.error.message });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('boats')
       .insert({
@@ -210,6 +216,7 @@ router.post(
         sail_number: isNonEmptyString(sail_number) ? sail_number.trim() : null,
         photo_url: isNonEmptyString(photo_url) ? photo_url : null,
         ...details.updates,
+        ...location.updates,
       })
       .select(BOAT_WITH_OWNER)
       .single();
@@ -342,6 +349,12 @@ router.put(
       return res.status(400).json({ error: details.error });
     }
     Object.assign(updates, details.updates);
+
+    const location = await sanitizeLocation(req.body ?? {}, { withClub: true, withCountryCity: false });
+    if ('error' in location) {
+      return res.status(location.error.status).json({ error: location.error.message });
+    }
+    Object.assign(updates, location.updates);
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No hay campos para actualizar' });

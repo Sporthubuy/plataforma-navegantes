@@ -13,7 +13,8 @@ export interface ClassifiedRequirement {
 export interface MatchingUserProfile {
   sailing_class?: string | null;
   usual_role?: string | null;
-  location?: string | null;
+  country?: string | null;
+  city?: string | null;
   languages?: string[] | string | null;
   is_active?: boolean;
   boats_count?: number;
@@ -80,11 +81,25 @@ export function calculateMatchScore(
   return Math.round((matched / requirements.length) * 100);
 }
 
-/** Una coincidencia local requiere que una ubicación contenga a la otra. */
+export interface PlaceLike {
+  country?: string | null;
+  city?: string | null;
+}
+
+/**
+ * Coincidencia geográfica entre un aviso y un perfil.
+ *
+ * El país tiene que coincidir sí o sí. La ciudad afina: si el aviso no
+ * dice ciudad vale todo el país, y si la dice, el perfil tiene que
+ * estar en esa ciudad (o no haber declarado ninguna, para no dejar
+ * afuera a quien completó el perfil a medias).
+ */
 export function locationsMatch(
-  classifiedLocation: string,
-  profileLocation: string | null | undefined
+  classified: PlaceLike,
+  profile: PlaceLike
 ): boolean {
-  return matchesText(profileLocation, classifiedLocation) ||
-    matchesText(classifiedLocation, profileLocation ?? '');
+  if (!classified.country || !profile.country) return false;
+  if (classified.country !== profile.country) return false;
+  if (!classified.city || !profile.city) return true;
+  return matchesText(profile.city, classified.city);
 }

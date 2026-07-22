@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatLocation } from '@/lib/geo';
 import { Avatar } from '@/components/avatar';
 import type { Classified, ClassifiedCategory } from '@/lib/types';
 
@@ -44,7 +45,7 @@ export function ClassifiedCard({ classified }: { classified: Classified }) {
       <p className="mt-2 line-clamp-3 flex-1 text-sm leading-6 text-navy-600">{classified.description}</p>
       <div className="mt-4 flex items-center gap-2 text-sm text-navy-500">
         <span aria-hidden="true">⌖</span>
-        <span className="truncate">{classified.location_worldwide ? 'Todo el mundo' : classified.location}</span>
+        <span className="truncate">{classified.location_worldwide ? 'Todo el mundo' : formatLocation(classified.city, classified.country)}</span>
       </div>
       <div className="mt-4 flex items-center justify-between border-t border-navy-100 pt-3">
         <span className="flex min-w-0 items-center gap-2 text-xs font-semibold text-navy-600">

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { RegattaStatusBadge } from './status-badge';
 import { formatDateRange } from '@/lib/format';
+import { placeLabel } from '@/lib/geo';
 import type { Regatta } from '@/lib/types';
 
 export function RegattaCard({ regatta }: { regatta: Regatta }) {
@@ -43,7 +44,7 @@ export function RegattaCard({ regatta }: { regatta: Regatta }) {
         )}
 
         <dl className="mt-3 flex flex-col gap-1 text-sm text-navy-500">
-          {regatta.location && <div>{regatta.location}</div>}
+          {placeLabel(regatta) && <div>{placeLabel(regatta)}</div>}
           <div>{formatDateRange(regatta.start_date, regatta.end_date)}</div>
         </dl>
 

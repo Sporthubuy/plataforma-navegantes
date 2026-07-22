@@ -15,6 +15,7 @@ import { Modal } from '@/components/ui/modal';
 import { RegattaStatusBadge } from '@/components/regatta/status-badge';
 import { ResultsTable } from '@/components/regatta/results-table';
 import { formatDateRange } from '@/lib/format';
+import { placeLabel } from '@/lib/geo';
 import type {
   ClassResults,
   EligibleBoat,
@@ -324,7 +325,7 @@ export default function RegattaDetailPage() {
               </h1>
               <p className="mt-1 text-sm text-navy-500">
                 {formatDateRange(regatta.start_date, regatta.end_date)}
-                {regatta.location ? ` · ${regatta.location}` : ''}
+                {placeLabel(regatta) ? ` · ${placeLabel(regatta)}` : ''}
               </p>
               {regatta.description && (
                 <p className="mt-3 max-w-prose text-sm whitespace-pre-wrap text-navy-700">

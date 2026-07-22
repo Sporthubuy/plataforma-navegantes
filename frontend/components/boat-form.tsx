@@ -2,6 +2,7 @@
 
 import { useRef, useState, type FormEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { ClubPicker } from '@/components/club-picker';
 import { HULL_MATERIALS, RATING_SYSTEMS, type Boat } from '@/lib/types';
 
 /**
@@ -46,7 +47,7 @@ export interface BoatFormData {
   year_built: number | null;
   hull_material: string | null;
   registration_number: string | null;
-  home_port: string | null;
+  club_id: string | null;
   flag: string | null;
   rating_system: string | null;
   rating_value: number | null;
@@ -94,7 +95,7 @@ export function BoatForm({
   const [registration, setRegistration] = useState(
     initial?.registration_number ?? ''
   );
-  const [homePort, setHomePort] = useState(initial?.home_port ?? '');
+  const [clubId, setClubId] = useState<string | null>(initial?.club_id ?? null);
   const [flag, setFlag] = useState(initial?.flag ?? '');
   const [ratingSystem, setRatingSystem] = useState(initial?.rating_system ?? '');
   const [ratingValue, setRatingValue] = useState(
@@ -112,7 +113,7 @@ export function BoatForm({
         initial.year_built ||
         initial.hull_material ||
         initial.registration_number ||
-        initial.home_port ||
+        initial.club_id ||
         initial.flag ||
         initial.rating_system ||
         initial.crew_capacity)
@@ -189,7 +190,7 @@ export function BoatForm({
         year_built: year,
         hull_material: orNull(hullMaterial),
         registration_number: orNull(registration),
-        home_port: orNull(homePort),
+        club_id: clubId,
         flag: normalizedFlag || null,
         rating_system: orNull(ratingSystem),
         // Sin sistema el valor no significa nada.
@@ -378,28 +379,23 @@ export function BoatForm({
             />
           </label>
 
-          <div className="grid grid-cols-[1fr_7rem] gap-3">
-            <label className={labelClass}>
-              Puerto base
-              <input
-                value={homePort}
-                onChange={(e) => setHomePort(e.target.value)}
-                className={inputClass}
-                placeholder="Puerto del Buceo"
-              />
-            </label>
+          <ClubPicker
+            value={clubId}
+            onChange={setClubId}
+            label="Club donde está el barco"
+            hint="Se elige del catálogo de clubes de la plataforma."
+          />
 
-            <label className={labelClass}>
-              Bandera
-              <input
-                value={flag}
-                onChange={(e) => setFlag(e.target.value.toUpperCase())}
-                className={inputClass}
-                maxLength={2}
-                placeholder="UY"
-              />
-            </label>
-          </div>
+          <label className={labelClass}>
+            Bandera
+            <input
+              value={flag}
+              onChange={(e) => setFlag(e.target.value.toUpperCase())}
+              className={`${inputClass} w-28`}
+              maxLength={2}
+              placeholder="UY"
+            />
+          </label>
 
           <p className="mt-2 text-xs font-bold uppercase tracking-wider text-navy-400">
             Regata

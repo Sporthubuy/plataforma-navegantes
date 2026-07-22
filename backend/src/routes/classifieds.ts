@@ -5,6 +5,7 @@ import { config } from '../config';
 import { requireAuth } from '../middleware/auth';
 import { asyncHandler } from '../lib/async-handler';
 import { isNonEmptyString } from '../lib/validation';
+import { sanitizeLocation } from '../lib/location';
 import {
   calculateMatchScore,
   locationsMatch,
@@ -25,9 +26,9 @@ const REQUIREMENT_TYPES: ClassifiedRequirementType[] = [
   'availability',
 ];
 const CLASSIFIED_FIELDS =
-  'id, author_id, category, title, description, location, location_worldwide, status, created_at, expires_at, renewed_at, views_count, contact_email, contact_phone';
+  'id, author_id, category, title, description, country, city, location_worldwide, status, created_at, expires_at, renewed_at, views_count, contact_email, contact_phone';
 const PROFILE_FIELDS =
-  'id, username, name, avatar_url, sailing_class, usual_role, location, bio';
+  'id, username, name, avatar_url, sailing_class, usual_role, country, city, bio';
 
 function optionalUserId(req: Request): string | null {
   const header = req.headers.authorization;
@@ -188,7 +189,9 @@ router.get(
   asyncHandler(async (req, res) => {
     const { limit, offset } = parsePagination(req.query);
     const category = typeof req.query.category === 'string' ? req.query.category : '';
-    const location = typeof req.query.location === 'string' ? req.query.location.trim() : '';
+    const country =
+      typeof req.query.country === 'string' ? req.query.country.trim().toUpperCase() : '';
+    const city = typeof req.query.city === 'string' ? req.query.city.trim() : '';
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
     const sort = typeof req.query.sort === 'string' ? req.query.sort : 'recent';
 
@@ -202,7 +205,13 @@ router.get(
     if (['tripulante', 'profesor', 'barco', 'otro'].includes(category)) {
       query = query.eq('category', category);
     }
-    if (location) query = query.ilike('location', `%${escapedSearch(location)}%`);
+    // Un aviso mundial aparece en cualquier búsqueda por ubicación.
+    if (/^[A-Z]{2}$/.test(country)) {
+      query = query.or(`country.eq.${country},location_worldwide.eq.true`);
+    }
+    if (city) {
+      query = query.or(`city.eq.${city},location_worldwide.eq.true`);
+    }
     if (search) {
       const pattern = `%${escapedSearch(search)}%`;
       query = query.or(`title.ilike.${pattern},description.ilike.${pattern}`);
@@ -409,8 +418,18 @@ router.post(
     const body = req.body ?? {};
     const categories = ['tripulante', 'profesor', 'barco', 'otro'];
     if (!categories.includes(body.category)) return res.status(400).json({ error: 'Categoría inválida' });
-    for (const field of ['title', 'description', 'location']) {
+    for (const field of ['title', 'description']) {
       if (!isNonEmptyString(body[field])) return res.status(400).json({ error: `${field} es obligatorio` });
+    }
+
+    const worldwide = body.location_worldwide === true;
+    const location = await sanitizeLocation(body);
+    if ('error' in location) {
+      return res.status(location.error.status).json({ error: location.error.message });
+    }
+    // Si no es mundial, tiene que decir dónde es.
+    if (!worldwide && !location.updates.country) {
+      return res.status(400).json({ error: 'Elegí el país del aviso o marcalo como mundial' });
     }
     const parsed = parseRequirements(body.requirements);
     if ('error' in parsed) return res.status(400).json({ error: parsed.error });
@@ -422,8 +441,8 @@ router.post(
         category: body.category,
         title: body.title.trim(),
         description: body.description.trim(),
-        location: body.location.trim(),
-        location_worldwide: body.location_worldwide === true,
+        ...location.updates,
+        location_worldwide: worldwide,
         contact_email: isNonEmptyString(body.contact_email) ? body.contact_email.trim() : null,
         contact_phone: isNonEmptyString(body.contact_phone) ? body.contact_phone.trim() : null,
         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -452,7 +471,7 @@ router.put(
 
     const body = req.body ?? {};
     const updates: Record<string, unknown> = {};
-    for (const field of ['title', 'description', 'location']) {
+    for (const field of ['title', 'description']) {
       if (body[field] !== undefined) {
         if (!isNonEmptyString(body[field])) return res.status(400).json({ error: `${field} no puede estar vacío` });
         updates[field] = body[field].trim();
@@ -464,6 +483,24 @@ router.put(
     }
     for (const field of ['location_worldwide', 'contact_email', 'contact_phone']) {
       if (body[field] !== undefined) updates[field] = field === 'location_worldwide' ? body[field] === true : (isNonEmptyString(body[field]) ? body[field].trim() : null);
+    }
+
+    const location = await sanitizeLocation(body);
+    if ('error' in location) {
+      return res.status(location.error.status).json({ error: location.error.message });
+    }
+    Object.assign(updates, location.updates);
+
+    // El CHECK de la base exige país salvo que el aviso sea mundial:
+    // se valida contra el estado resultante, no solo contra el body.
+    const finalWorldwide =
+      updates.location_worldwide !== undefined
+        ? updates.location_worldwide
+        : classified.location_worldwide;
+    const finalCountry =
+      updates.country !== undefined ? updates.country : classified.country;
+    if (!finalWorldwide && !finalCountry) {
+      return res.status(400).json({ error: 'Elegí el país del aviso o marcalo como mundial' });
     }
     const parsed = parseRequirements(body.requirements);
     if ('error' in parsed) return res.status(400).json({ error: parsed.error });
@@ -557,7 +594,11 @@ router.get(
       }
     }
     const candidates = profileRows
-      .filter((profile) => classified.location_worldwide || locationsMatch(classified.location, profile.location))
+      .filter(
+        (profile) =>
+          classified.location_worldwide ||
+          locationsMatch(classified, profile)
+      )
       .map((profile) => {
         const userProfile: MatchingUserProfile = {
           ...profile,

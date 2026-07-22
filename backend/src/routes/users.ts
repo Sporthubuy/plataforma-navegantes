@@ -6,12 +6,13 @@ import { isValidUsername } from '../lib/validation';
 import { extForMime, imageUpload } from '../lib/upload';
 import { getUserPermissions } from '../middleware/permissions';
 import { sanitizeProfileExtras } from '../lib/profile-fields';
+import { sanitizeLocation } from '../lib/location';
 import { computeStandings } from '../lib/scoring';
 
 const router = Router();
 
 const EXTRA_FIELDS =
-  'club, sailing_class, usual_role, location, instagram, facebook, youtube, website';
+  'sailing_class, usual_role, country, city, club_id, club:clubs!profiles_club_id_fkey(id, name, short_name, country, city), instagram, facebook, youtube, website';
 const PROFILE_FIELDS = `id, username, name, bio, avatar_url, created_at, ${EXTRA_FIELDS}`;
 const ME_FIELDS = `id, username, name, bio, avatar_url, created_at, account_type, status, ${EXTRA_FIELDS}`;
 
@@ -178,7 +179,7 @@ router.get(
     const { data: entries } = await supabaseAdmin
       .from('regatta_entries')
       .select(
-        'id, boat_id, regatta_class_id, regatta_class:regatta_classes(id, sailing_class, discards_count, status, regatta:regattas(id, name, location, start_date))'
+        'id, boat_id, regatta_class_id, regatta_class:regatta_classes(id, sailing_class, discards_count, status, regatta:regattas(id, name, country, city, start_date))'
       )
       .in('boat_id', boatIds)
       .eq('status', 'confirmed');
@@ -191,7 +192,8 @@ router.get(
       regatta: {
         id: string;
         name: string;
-        location: string | null;
+        country: string | null;
+        city: string | null;
         start_date: string;
       } | null;
     };
@@ -272,7 +274,8 @@ router.get(
           regatta_class_id: cls.id,
           sailing_class: cls.sailing_class,
           class_status: cls.status,
-          location: regatta.location,
+          country: regatta.country,
+          city: regatta.city,
           start_date: regatta.start_date,
           status: cls.status,
           boat_name: boatName.get(e.boat_id) ?? null,
@@ -383,6 +386,15 @@ router.put(
       return res.status(extras.error.status).json({ error: extras.error.message });
     }
     Object.assign(updates, extras.updates);
+
+    // Ubicación y club de la lista.
+    const location = await sanitizeLocation(req.body ?? {}, { withClub: true });
+    if ('error' in location) {
+      return res
+        .status(location.error.status)
+        .json({ error: location.error.message });
+    }
+    Object.assign(updates, location.updates);
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No hay campos para actualizar' });

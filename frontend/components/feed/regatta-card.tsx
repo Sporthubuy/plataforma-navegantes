@@ -3,6 +3,7 @@ import { Flag, MapPin, CalendarDays } from 'lucide-react';
 import { buttonClasses } from '@/components/ui/button';
 import { REGATTA_STATUS } from '@/components/regatta/status-badge';
 import { formatDateRange } from '@/lib/format';
+import { placeLabel } from '@/lib/geo';
 import type { Regatta } from '@/lib/types';
 
 /** Regata próxima dentro del feed. */
@@ -25,10 +26,10 @@ export function FeedRegattaCard({ regatta }: { regatta: Regatta }) {
           <CalendarDays className="h-3.5 w-3.5" />
           {formatDateRange(regatta.start_date, regatta.end_date)}
         </span>
-        {regatta.location && (
+        {placeLabel(regatta) && (
           <span className="inline-flex items-center gap-1">
             <MapPin className="h-3.5 w-3.5" />
-            {regatta.location}
+            {placeLabel(regatta)}
           </span>
         )}
         <span className={`rounded-full px-2 py-0.5 font-medium ${status.classes}`}>

@@ -1,3 +1,4 @@
+import { formatLocation } from '@/lib/geo';
 import type { ProfileStats, User } from '@/lib/types';
 
 // ── Constructores de URL pública a partir del dato crudo ────────────
@@ -105,10 +106,10 @@ function WebIcon() {
 
 export function NauticalData({ profile }: { profile: User }) {
   const rows = [
-    { icon: <ClubIcon />, value: profile.club },
+    { icon: <ClubIcon />, value: profile.club?.name ?? null },
     { icon: <ClassIcon />, value: profile.sailing_class },
     { icon: <RoleIcon />, value: profile.usual_role },
-    { icon: <LocationIcon />, value: profile.location },
+    { icon: <LocationIcon />, value: formatLocation(profile.city, profile.country) },
   ].filter((r) => r.value);
 
   if (rows.length === 0) return null;

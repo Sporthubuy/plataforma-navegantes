@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { formatLocation } from '@/lib/geo';
 import { Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Widget, WidgetEmpty } from './widget-shell';
@@ -52,7 +53,7 @@ export function ClassifiedMatchesWidget() {
                 </span>
                 <span className="block truncate text-xs text-navy-400">
                   {m.classified?.category}
-                  {m.classified?.location ? ` · ${m.classified.location}` : ''}
+                  {formatLocation(m.classified?.city, m.classified?.country) ? ` · ${formatLocation(m.classified?.city, m.classified?.country)}` : ''}
                 </span>
                 <span className="mt-1.5 flex items-center gap-2">
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-navy-100">

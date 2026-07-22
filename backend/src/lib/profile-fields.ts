@@ -64,8 +64,9 @@ export function sanitizeProfileExtras(
 ): SanitizeResult {
   const updates: Record<string, unknown> = {};
 
-  // Datos náuticos — texto libre.
-  for (const field of ['club', 'sailing_class', 'usual_role', 'location']) {
+  // Datos náuticos — texto libre. El club y la ubicación ya no son
+  // texto: van por sanitizeLocation (club_id + país/ciudad).
+  for (const field of ['sailing_class', 'usual_role']) {
     if (body[field] !== undefined) {
       updates[field] = cleanText(body[field]);
     }

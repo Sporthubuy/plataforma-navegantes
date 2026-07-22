@@ -4,12 +4,16 @@ import { useState, type FormEvent } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Textarea } from '@/components/ui/input';
+import { LocationPicker } from '@/components/location-picker';
+import { ClubPicker } from '@/components/club-picker';
 import type { Regatta } from '@/lib/types';
 
 export interface RegattaFormData {
   name: string;
   description: string | null;
-  location: string | null;
+  country: string | null;
+  city: string | null;
+  club_id: string | null;
   start_date: string;
   end_date: string;
   registration_opens_at: string | null;
@@ -38,7 +42,9 @@ export function RegattaForm({
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
-  const [location, setLocation] = useState(initial?.location ?? '');
+  const [country, setCountry] = useState<string | null>(initial?.country ?? null);
+  const [city, setCity] = useState<string | null>(initial?.city ?? null);
+  const [clubId, setClubId] = useState<string | null>(initial?.club_id ?? null);
   const [startDate, setStartDate] = useState(initial?.start_date ?? '');
   const [endDate, setEndDate] = useState(initial?.end_date ?? '');
   const [opensAt, setOpensAt] = useState(
@@ -61,7 +67,9 @@ export function RegattaForm({
     onSubmit({
       name: name.trim(),
       description: description.trim() || null,
-      location: location.trim() || null,
+      country,
+      city,
+      club_id: clubId,
       start_date: startDate,
       end_date: endDate,
       registration_opens_at: opensAt ? new Date(opensAt).toISOString() : null,
@@ -87,13 +95,22 @@ export function RegattaForm({
             rows={2}
           />
         </Field>
-        <Field label="Ubicación">
-          <Input
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="Río de la Plata"
-          />
-        </Field>
+        <LocationPicker
+          value={{ country, city }}
+          onChange={(next) => {
+            setCountry(next.country);
+            setCity(next.city);
+            // Un club de otro país deja de tener sentido como sede.
+            if (next.country !== country) setClubId(null);
+          }}
+          cityLabel="Ciudad / sede"
+        />
+        <ClubPicker
+          value={clubId}
+          onChange={setClubId}
+          label="Club organizador"
+          country={country}
+        />
         <div className="grid grid-cols-2 gap-3">
           <Field label="Inicio *">
             <Input

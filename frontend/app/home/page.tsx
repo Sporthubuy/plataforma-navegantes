@@ -121,7 +121,7 @@ export default function HomePage() {
           regattas={regattas}
           boats={boats}
           pendingInvites={pendingInvites}
-          location={user.location}
+          location={user.city}
         />
       </div>
 

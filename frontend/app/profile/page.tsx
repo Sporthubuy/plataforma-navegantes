@@ -12,6 +12,8 @@ import { Username } from '@/components/username';
 import { Avatar } from '@/components/avatar';
 import { BoatCard } from '@/components/boat-card';
 import { BOAT_CATEGORIES } from '@/components/boat-form';
+import { ClubPicker } from '@/components/club-picker';
+import { LocationPicker } from '@/components/location-picker';
 import { Card } from '@/components/ui/card';
 import { Button, buttonClasses } from '@/components/ui/button';
 import { Field, Input, Textarea, Select, controlClasses } from '@/components/ui/input';
@@ -57,12 +59,13 @@ interface ProfileForm {
   username: string;
   name: string;
   bio: string;
-  club: string;
+  clubId: string | null;
   classSelect: string;
   classCustom: string;
   roleSelect: string;
   roleCustom: string;
-  location: string;
+  country: string | null;
+  city: string | null;
   instagram: string;
   facebook: string;
   youtube: string;
@@ -73,12 +76,13 @@ const EMPTY_FORM: ProfileForm = {
   username: '',
   name: '',
   bio: '',
-  club: '',
+  clubId: null,
   classSelect: '',
   classCustom: '',
   roleSelect: '',
   roleCustom: '',
-  location: '',
+  country: null,
+  city: null,
   instagram: '',
   facebook: '',
   youtube: '',
@@ -168,12 +172,13 @@ export default function ProfilePage() {
       username: shown.username,
       name: shown.name ?? '',
       bio: shown.bio ?? '',
-      club: shown.club ?? '',
+      clubId: shown.club_id ?? null,
       classSelect: knownClass,
       classCustom: knownClass === 'Otra' ? (shown.sailing_class ?? '') : '',
       roleSelect: knownRole,
       roleCustom: knownRole === 'Otro' ? (shown.usual_role ?? '') : '',
-      location: shown.location ?? '',
+      country: shown.country ?? null,
+      city: shown.city ?? null,
       instagram: shown.instagram ?? '',
       facebook: shown.facebook ?? '',
       youtube: shown.youtube ?? '',
@@ -222,10 +227,11 @@ export default function ProfilePage() {
         username: normalized,
         name: form.name.trim() || null,
         bio: form.bio.trim() || null,
-        club: form.club.trim() || null,
+        club_id: form.clubId,
         sailing_class: sailingClass || null,
         usual_role: usualRole || null,
-        location: form.location.trim() || null,
+        country: form.country,
+        city: form.city,
         instagram: form.instagram.trim() || null,
         facebook: form.facebook.trim() || null,
         youtube: form.youtube.trim() || null,
@@ -382,13 +388,12 @@ export default function ProfilePage() {
                 <legend className="text-sm font-bold text-navy-900">
                   Datos de navegación
                 </legend>
-                <Field label="Club o afiliación">
-                  <Input
-                    value={form.club}
-                    onChange={(e) => set({ club: e.target.value })}
-                    placeholder="Yacht Club Uruguayo"
-                  />
-                </Field>
+                <ClubPicker
+                  value={form.clubId}
+                  onChange={(clubId) => set({ clubId })}
+                  label="Club donde sos socio"
+                  hint="Se elige del catálogo de la plataforma."
+                />
                 <Field label="Clase / categoría">
                   <Select
                     value={form.classSelect}
@@ -429,13 +434,11 @@ export default function ProfilePage() {
                     placeholder="Escribe tu rol"
                   />
                 )}
-                <Field label="Ubicación / zona de navegación">
-                  <Input
-                    value={form.location}
-                    onChange={(e) => set({ location: e.target.value })}
-                    placeholder="Río de la Plata, Uruguay"
-                  />
-                </Field>
+                <LocationPicker
+                  value={{ country: form.country, city: form.city }}
+                  onChange={({ country, city }) => set({ country, city })}
+                  cityLabel="Ciudad / zona de navegación"
+                />
               </fieldset>
 
               {/* Redes y contacto */}

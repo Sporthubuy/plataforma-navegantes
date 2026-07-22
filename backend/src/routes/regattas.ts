@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../lib/supabase';
 import { config } from '../config';
 import { requireAuth } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
+import { sanitizeLocation } from '../lib/location';
 import { asyncHandler } from '../lib/async-handler';
 import { isNonEmptyString } from '../lib/validation';
 import { computeStandings, penaltyPoints } from '../lib/scoring';
@@ -14,7 +15,7 @@ const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 
 const REGATTA_FIELDS =
-  'id, name, description, location, start_date, end_date, status, registration_opens_at, registration_closes_at, scoring_system, photo_url, created_by, created_at, updated_at';
+  'id, name, description, country, city, club_id, club:clubs(id, name, short_name, country, city), start_date, end_date, status, registration_opens_at, registration_closes_at, scoring_system, photo_url, created_by, created_at, updated_at';
 
 const CLASS_FIELDS =
   'id, regatta_id, sailing_class, discards_count, max_entries, status, created_at, updated_at';
@@ -453,7 +454,6 @@ router.post(
     const {
       name,
       description,
-      location,
       start_date,
       end_date,
       registration_opens_at,
@@ -467,18 +467,24 @@ router.post(
     const dateError = validateDates(start_date, end_date);
     if (dateError) return res.status(422).json({ error: dateError });
 
+    // Sede: país/ciudad y, si aplica, el club organizador.
+    const location = await sanitizeLocation(req.body ?? {}, { withClub: true });
+    if ('error' in location) {
+      return res.status(location.error.status).json({ error: location.error.message });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('regattas')
       .insert({
         name: name.trim(),
         description: isNonEmptyString(description) ? description.trim() : null,
-        location: isNonEmptyString(location) ? location.trim() : null,
         start_date,
         end_date,
         registration_opens_at: registration_opens_at || null,
         registration_closes_at: registration_closes_at || null,
         photo_url: isNonEmptyString(photo_url) ? photo_url : null,
         created_by: req.user!.id,
+        ...location.updates,
       })
       .select(REGATTA_FIELDS)
       .single();
@@ -516,8 +522,13 @@ router.put(
       updates.description = isNonEmptyString(body.description)
         ? body.description.trim()
         : null;
-    if (body.location !== undefined)
-      updates.location = isNonEmptyString(body.location) ? body.location.trim() : null;
+
+    const location = await sanitizeLocation(body, { withClub: true });
+    if ('error' in location) {
+      return res.status(location.error.status).json({ error: location.error.message });
+    }
+    Object.assign(updates, location.updates);
+
     if (body.start_date !== undefined) updates.start_date = body.start_date;
     if (body.end_date !== undefined) updates.end_date = body.end_date;
     if (body.registration_opens_at !== undefined)

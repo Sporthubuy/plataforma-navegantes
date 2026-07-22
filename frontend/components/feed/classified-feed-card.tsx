@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatLocation } from '@/lib/geo';
 import { Megaphone, MapPin, Globe2 } from 'lucide-react';
 import { isRecent } from '@/lib/format';
 import type { Classified, ClassifiedCategory } from '@/lib/types';
@@ -53,7 +54,7 @@ export function FeedClassifiedCard({ classified }: { classified: Classified }) {
         ) : (
           <>
             <MapPin className="h-3.5 w-3.5" />
-            {classified.location}
+            {formatLocation(classified.city, classified.country)}
           </>
         )}
       </p>

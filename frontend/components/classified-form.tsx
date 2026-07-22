@@ -7,12 +7,15 @@ import type {
   ClassifiedRequirementType,
 } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { LocationPicker } from '@/components/location-picker';
+import { DEFAULT_COUNTRY } from '@/lib/geo';
 
 export interface ClassifiedFormData {
   category: ClassifiedCategory;
   title: string;
   description: string;
-  location: string;
+  country: string | null;
+  city: string | null;
   location_worldwide: boolean;
   contact_email: string;
   contact_phone: string;
@@ -22,13 +25,6 @@ export interface ClassifiedFormData {
   }>;
 }
 
-const LOCATION_SUGGESTIONS = [
-  'Río de la Plata, Uruguay',
-  'Montevideo',
-  'Mar del Plata',
-  'Buenos Aires',
-  'Punta del Este',
-];
 
 const REQUIREMENT_TYPES: Array<{ value: ClassifiedRequirementType; label: string }> = [
   { value: 'sailing_class', label: 'Clase de vela' },
@@ -77,7 +73,10 @@ export function ClassifiedForm({
   const [category, setCategory] = useState<ClassifiedCategory>(classified?.category ?? 'tripulante');
   const [title, setTitle] = useState(classified?.title ?? '');
   const [description, setDescription] = useState(classified?.description ?? '');
-  const [location, setLocation] = useState(classified?.location ?? '');
+  const [country, setCountry] = useState<string | null>(
+    classified?.country ?? DEFAULT_COUNTRY
+  );
+  const [city, setCity] = useState<string | null>(classified?.city ?? null);
   const [worldwide, setWorldwide] = useState(classified?.location_worldwide ?? false);
   const [contactEmail, setContactEmail] = useState(classified?.contact_email ?? defaultEmail);
   const [contactPhone, setContactPhone] = useState(classified?.contact_phone ?? '');
@@ -102,7 +101,9 @@ export function ClassifiedForm({
       category,
       title: title.trim(),
       description: description.trim(),
-      location: location.trim(),
+      // Un aviso mundial no necesita ubicación; uno local sí.
+      country: worldwide ? null : country,
+      city: worldwide ? null : city,
       location_worldwide: worldwide,
       contact_email: contactEmail.trim(),
       contact_phone: contactPhone.trim(),
@@ -124,12 +125,20 @@ export function ClassifiedForm({
               <option value="otro">Otro</option>
             </select>
           </label>
-          <label className="text-sm font-semibold text-navy-800">
-            Ubicación
-            <input required list="classified-locations" value={location} onChange={(event) => setLocation(event.target.value)} className={`${inputClass} mt-2`} placeholder="Montevideo" />
-            <datalist id="classified-locations">{LOCATION_SUGGESTIONS.map((item) => <option key={item} value={item} />)}</datalist>
-          </label>
         </div>
+        {!worldwide && (
+          <div className="mt-4">
+            <LocationPicker
+              value={{ country, city }}
+              onChange={(next) => {
+                setCountry(next.country);
+                setCity(next.city);
+              }}
+              required
+              hint="Dejala vacía si el aviso vale para todo el país."
+            />
+          </div>
+        )}
         <label className="mt-4 block text-sm font-semibold text-navy-800">
           Título
           <input required maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} className={`${inputClass} mt-2`} placeholder="Busco Proa para regata ILCA" />

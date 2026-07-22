@@ -1,3 +1,25 @@
+export interface Club {
+  id: string;
+  name: string;
+  short_name: string | null;
+  /** ISO 3166-1 alfa-2. */
+  country: string;
+  city: string | null;
+  website?: string | null;
+  /** Cuenta propia del club, si existe. */
+  profile_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Resumen del club embebido en perfiles, barcos y regatas. */
+export type ClubRef = Pick<Club, 'id' | 'name' | 'short_name' | 'country' | 'city'>;
+
+export interface ClubStats {
+  members_count: number;
+  boats_count: number;
+}
+
 export interface User {
   id: string;
   email?: string;
@@ -7,10 +29,13 @@ export interface User {
   avatar_url: string | null;
   created_at?: string;
   // Datos náuticos
-  club?: string | null;
   sailing_class?: string | null;
   usual_role?: string | null;
-  location?: string | null;
+  // Ubicación estructurada + club de la lista
+  country?: string | null;
+  city?: string | null;
+  club_id?: string | null;
+  club?: ClubRef | null;
   // Redes / contacto
   instagram?: string | null;
   facebook?: string | null;
@@ -103,7 +128,9 @@ export interface Boat {
   year_built: number | null;
   hull_material: HullMaterial | null;
   registration_number: string | null;
-  home_port: string | null;
+  /** Club donde está basado el barco. */
+  club_id: string | null;
+  club?: ClubRef | null;
   /** Código ISO 3166-1 alfa-2 (UY, AR, ES…). */
   flag: string | null;
   rating_system: RatingSystem | null;
@@ -172,7 +199,8 @@ export interface ClassifiedProfile {
   bio?: string | null;
   sailing_class?: string | null;
   usual_role?: string | null;
-  location?: string | null;
+  country?: string | null;
+  city?: string | null;
 }
 
 export interface Classified {
@@ -181,7 +209,8 @@ export interface Classified {
   category: ClassifiedCategory;
   title: string;
   description: string;
-  location: string;
+  country: string | null;
+  city: string | null;
   location_worldwide: boolean;
   status: 'active' | 'expired' | 'archived';
   created_at: string;
@@ -300,7 +329,11 @@ export interface Regatta {
   id: string;
   name: string;
   description: string | null;
-  location: string | null;
+  country: string | null;
+  city: string | null;
+  /** Club sede, si lo hay. */
+  club_id: string | null;
+  club?: ClubRef | null;
   start_date: string;
   end_date: string;
   status: RegattaStatus;
@@ -416,7 +449,8 @@ export interface RegattaHistoryItem {
   regatta_class_id: string;
   sailing_class: string;
   class_status: RegattaStatus;
-  location: string | null;
+  country: string | null;
+  city: string | null;
   start_date: string;
   status: RegattaStatus;
   boat_name: string | null;

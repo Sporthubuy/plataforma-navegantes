@@ -26,7 +26,8 @@ export function BoatSpecs({ boat }: { boat: Boat }) {
   add('Año', boat.year_built);
   add('Casco', boat.hull_material);
   add('Matrícula', boat.registration_number);
-  add('Puerto base', boat.home_port);
+  add('Club', boat.club ? boat.club.name : null);
+  add('Ciudad', boat.club?.city ?? null);
   if (boat.flag) {
     add('Bandera', `${flagEmoji(boat.flag)} ${boat.flag}`.trim());
   }

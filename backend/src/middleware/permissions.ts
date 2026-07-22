@@ -14,6 +14,7 @@ export const PERMISSION_CATALOG: Record<string, string> = {
   'regattas.edit': 'Editar regatas y cambiar su estado',
   'regattas.delete': 'Eliminar regatas',
   'regattas.manage_results': 'Gestionar mangas y cargar resultados',
+  'clubs.manage': 'Crear, editar y eliminar clubes del catálogo',
 };
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSION_CATALOG);
