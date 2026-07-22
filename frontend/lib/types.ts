@@ -41,6 +41,148 @@ export interface User {
   facebook?: string | null;
   youtube?: string | null;
   website?: string | null;
+  // CV náutico
+  verified_badge?: boolean;
+  public_profile?: boolean;
+}
+
+/** Perfil con el CV cargado, tal como lo devuelve GET /profile/:id. */
+export type ProfileWithCv = User & Partial<ProfileCv>;
+
+// ── CV náutico ──────────────────────────────────────────────
+
+export const CREDENTIAL_TYPES = [
+  'instructor',
+  'coach',
+  'sailor_level',
+  'experience',
+  'other',
+] as const;
+export type CredentialType = (typeof CREDENTIAL_TYPES)[number];
+
+export const CREDENTIAL_TYPE_LABEL: Record<CredentialType, string> = {
+  instructor: 'Instructor',
+  coach: 'Entrenador',
+  sailor_level: 'Nivel de navegante',
+  experience: 'Experiencia',
+  other: 'Otro',
+};
+
+export const ACHIEVEMENT_TYPES = [
+  '1st_place',
+  '2nd_place',
+  '3rd_place',
+  'podium',
+  'best_class',
+  'regatta_finished',
+] as const;
+export type AchievementType = (typeof ACHIEVEMENT_TYPES)[number];
+
+export const SEEKING_ROLES = [
+  'tripulante',
+  'entrenador',
+  'ambos',
+  'socio_de_regata',
+] as const;
+export type SeekingRole = (typeof SEEKING_ROLES)[number];
+
+export const SEEKING_ROLE_LABEL: Record<SeekingRole, string> = {
+  tripulante: 'Busco embarcarme',
+  entrenador: 'Ofrezco entrenamiento',
+  ambos: 'Tripulante y entrenador',
+  socio_de_regata: 'Busco socio de regata',
+};
+
+export const AVAILABILITY_STATUSES = [
+  'available',
+  'not_available',
+  'selective',
+] as const;
+export type AvailabilityStatus = (typeof AVAILABILITY_STATUSES)[number];
+
+export const AVAILABILITY_LABEL: Record<AvailabilityStatus, string> = {
+  available: 'Disponible',
+  not_available: 'No disponible',
+  selective: 'Abierto a propuestas',
+};
+
+export interface Credential {
+  id: string;
+  user_id: string;
+  credential_type: CredentialType;
+  title: string;
+  issuer: string | null;
+  issue_date: string | null;
+  expiry_date: string | null;
+  credential_url: string | null;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RegattaAchievement {
+  id: string;
+  user_id: string;
+  achievement_type: AchievementType;
+  regatta_id: string | null;
+  regatta_class_id: string | null;
+  regatta_name: string;
+  regatta_class: string | null;
+  regatta_date: string;
+  position: number | null;
+  total_entries: number | null;
+  boat_name: string | null;
+  /** true = lo declaró el navegante; false = lo generó la app. */
+  is_manual: boolean;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ProfessionalSummary {
+  user_id: string;
+  headline: string | null;
+  professional_bio: string | null;
+  specialties: string[];
+  experience_years: number | null;
+  seeking_role: SeekingRole | null;
+  preferred_classes: string[];
+  availability_status: AvailabilityStatus;
+  updated_at: string;
+}
+
+export interface AchievementStats {
+  user_id: string;
+  total_regattas_sailed: number;
+  total_1st_places: number;
+  total_podiums: number;
+  best_class: string | null;
+  sailing_since_year: number | null;
+  last_regatta_date: string | null;
+  verified_credentials_count: number;
+}
+
+/** Lo que agrega GET /profile/:id sobre el perfil básico. */
+export interface ProfileCv {
+  professional_summary: ProfessionalSummary | null;
+  achievement_stats: AchievementStats;
+  credentials: Credential[];
+  achievements: RegattaAchievement[];
+  achievements_total: number;
+}
+
+export interface SearchResult {
+  profile: {
+    id: string;
+    username: string;
+    name: string | null;
+    avatar_url: string | null;
+    country: string | null;
+    city: string | null;
+    verified_badge: boolean;
+    club?: { id: string; name: string; short_name: string | null } | null;
+  };
+  professional_summary: ProfessionalSummary;
+  achievement_stats: AchievementStats;
 }
 
 export interface ProfileStats {

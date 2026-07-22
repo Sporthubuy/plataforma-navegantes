@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -22,8 +22,10 @@ import {
   SocialLinks,
   StatsStrip,
 } from '@/components/profile/profile-extras';
-import { RegattaHistory } from '@/components/profile/regatta-history';
-import type { MyBoat, ProfileStats, User } from '@/lib/types';
+import { CvPanel } from '@/components/cv/cv-panel';
+import { VerifiedBadge } from '@/components/cv/cv-sections';
+import type { MyBoat, ProfileStats, ProfileWithCv, AvailabilityStatus } from '@/lib/types';
+import { AVAILABILITY_STATUSES, AVAILABILITY_LABEL, SEEKING_ROLES, SEEKING_ROLE_LABEL } from '@/lib/types';
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 const INSTAGRAM_RE = /^[A-Za-z0-9._]{1,30}$/;
@@ -66,6 +68,12 @@ interface ProfileForm {
   roleCustom: string;
   country: string | null;
   city: string | null;
+  headline: string;
+  professionalBio: string;
+  specialties: string;
+  experienceYears: string;
+  seekingRole: string;
+  availability: AvailabilityStatus;
   instagram: string;
   facebook: string;
   youtube: string;
@@ -83,6 +91,12 @@ const EMPTY_FORM: ProfileForm = {
   roleCustom: '',
   country: null,
   city: null,
+  headline: '',
+  professionalBio: '',
+  specialties: '',
+  experienceYears: '',
+  seekingRole: '',
+  availability: 'selective',
   instagram: '',
   facebook: '',
   youtube: '',
@@ -93,7 +107,7 @@ export default function ProfilePage() {
   const { user, loading, logout, updateUser } = useAuth();
   const router = useRouter();
 
-  const [profile, setProfile] = useState<User | null>(null);
+  const [profile, setProfile] = useState<ProfileWithCv | null>(null);
   const [boats, setBoats] = useState<MyBoat[] | null>(null);
   const [stats, setStats] = useState<ProfileStats | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
@@ -114,12 +128,17 @@ export default function ProfilePage() {
     }
   }, [loading, user, router]);
 
-  useEffect(() => {
+  const reloadProfile = useCallback(() => {
     if (!user) return;
     api
       .get(`/api/users/profile/${user.id}`)
       .then((res) => setProfile(res.data.profile))
       .catch(() => toast.error('No se pudo cargar el perfil'));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    reloadProfile();
     api
       .get('/api/boats/mine')
       .then((res) => setBoats(res.data.boats))
@@ -132,7 +151,7 @@ export default function ProfilePage() {
       .get('/api/crew/invitations')
       .then((res) => setPendingCount(res.data.invitations.length))
       .catch(() => setPendingCount(0));
-  }, [user]);
+  }, [user, reloadProfile]);
 
   if (loading || !user) {
     return (
@@ -142,7 +161,8 @@ export default function ProfilePage() {
     );
   }
 
-  const shown = profile ?? user;
+  // Mientras el perfil completo no llegó, se pinta con lo que trae la sesión.
+  const shown: ProfileWithCv = profile ?? user;
 
   function validateUsernameLive(value: string) {
     const normalized = value.trim().toLowerCase().replace(/^@/, '');
@@ -179,6 +199,17 @@ export default function ProfilePage() {
       roleCustom: knownRole === 'Otro' ? (shown.usual_role ?? '') : '',
       country: shown.country ?? null,
       city: shown.city ?? null,
+      headline: shown.professional_summary?.headline ?? '',
+      professionalBio: shown.professional_summary?.professional_bio ?? '',
+      // Se editan como texto separado por comas: más rápido que un
+      // multi-select para una lista corta y libre.
+      specialties: (shown.professional_summary?.specialties ?? []).join(', '),
+      experienceYears:
+        shown.professional_summary?.experience_years != null
+          ? String(shown.professional_summary.experience_years)
+          : '',
+      seekingRole: shown.professional_summary?.seeking_role ?? '',
+      availability: shown.professional_summary?.availability_status ?? 'selective',
       instagram: shown.instagram ?? '',
       facebook: shown.facebook ?? '',
       youtube: shown.youtube ?? '',
@@ -232,6 +263,15 @@ export default function ProfilePage() {
         usual_role: usualRole || null,
         country: form.country,
         city: form.city,
+        headline: form.headline.trim() || null,
+        professional_bio: form.professionalBio.trim() || null,
+        specialties: form.specialties
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+        experience_years: form.experienceYears.trim() || null,
+        seeking_role: form.seekingRole || null,
+        availability_status: form.availability,
         instagram: form.instagram.trim() || null,
         facebook: form.facebook.trim() || null,
         youtube: form.youtube.trim() || null,
@@ -330,8 +370,9 @@ export default function ProfilePage() {
               onChange={(e) => handleAvatarSelected(e.target.files?.[0] ?? null)}
             />
 
-            <h2 className="mt-3 text-xl font-bold text-navy-900">
+            <h2 className="mt-3 flex items-center gap-1.5 text-xl font-bold text-navy-900">
               {shown.name || shown.username}
+              {shown.verified_badge && <VerifiedBadge />}
             </h2>
             <Username username={shown.username} className="text-sm" />
             {profile?.created_at && (
@@ -382,6 +423,83 @@ export default function ProfilePage() {
                   />
                 </Field>
               </div>
+
+              {/* Perfil profesional */}
+              <fieldset className="flex flex-col gap-4 border-t border-navy-100 pt-5">
+                <legend className="text-sm font-bold text-navy-900">
+                  Perfil profesional
+                </legend>
+                <Field
+                  label="Titular"
+                  hint="Una línea, como en LinkedIn."
+                >
+                  <Input
+                    value={form.headline}
+                    maxLength={160}
+                    onChange={(e) => set({ headline: e.target.value })}
+                    placeholder="Timonel · Instructor ILCA · Campeón Nacional 2022"
+                  />
+                </Field>
+                <Field label="Experiencia">
+                  <Textarea
+                    value={form.professionalBio}
+                    rows={4}
+                    maxLength={2000}
+                    onChange={(e) => set({ professionalBio: e.target.value })}
+                    placeholder="Contá tu trayectoria: clases, roles, resultados, alumnos…"
+                  />
+                </Field>
+                <Field
+                  label="Especialidades"
+                  hint="Separadas por comas: Snipe, ILCA, Estrategia…"
+                >
+                  <Input
+                    value={form.specialties}
+                    onChange={(e) => set({ specialties: e.target.value })}
+                    placeholder="Snipe, ILCA, Estrategia"
+                  />
+                </Field>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Años de experiencia">
+                    <Input
+                      value={form.experienceYears}
+                      inputMode="numeric"
+                      onChange={(e) => set({ experienceYears: e.target.value })}
+                      placeholder="11"
+                    />
+                  </Field>
+                  <Field label="Disponibilidad">
+                    <Select
+                      value={form.availability}
+                      onChange={(e) =>
+                        set({ availability: e.target.value as AvailabilityStatus })
+                      }
+                    >
+                      {AVAILABILITY_STATUSES.map((a) => (
+                        <option key={a} value={a}>
+                          {AVAILABILITY_LABEL[a]}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                </div>
+                <Field
+                  label="Qué buscás"
+                  hint="Define en qué búsquedas aparecés."
+                >
+                  <Select
+                    value={form.seekingRole}
+                    onChange={(e) => set({ seekingRole: e.target.value })}
+                  >
+                    <option value="">No estoy buscando nada</option>
+                    {SEEKING_ROLES.map((r) => (
+                      <option key={r} value={r}>
+                        {SEEKING_ROLE_LABEL[r]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </fieldset>
 
               {/* Datos de navegación */}
               <fieldset className="flex flex-col gap-4 border-t border-navy-100 pt-5">
@@ -531,6 +649,12 @@ export default function ProfilePage() {
             </form>
           ) : (
             <>
+              {shown.professional_summary?.headline && (
+                <p className="mt-3 max-w-prose text-center text-sm font-semibold text-navy-700">
+                  {shown.professional_summary.headline}
+                </p>
+              )}
+
               <p className="mt-5 max-w-prose text-center text-sm whitespace-pre-wrap text-navy-700">
                 {shown.bio || 'Sin bio todavía. ¡Cuéntanos sobre ti!'}
               </p>
@@ -581,12 +705,9 @@ export default function ProfilePage() {
             )}
           </section>
 
-          <section className="mt-8">
-            <h2 className="mb-3 text-lg font-bold text-navy-900 md:text-xl">
-              Historial de regatas
-            </h2>
-            <RegattaHistory userId={user.id} />
-          </section>
+          <div className="mt-8">
+            <CvPanel profile={shown} isOwner onRefresh={reloadProfile} />
+          </div>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button
