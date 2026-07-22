@@ -25,6 +25,7 @@ import {
   formatMembership,
 } from '@/components/profile/profile-extras';
 import { CvPanel } from '@/components/cv/cv-panel';
+import { NauticalIdentity } from '@/components/community/nautical-identity';
 import { CvActions } from '@/components/cv/cv-actions';
 import { VerifiedBadge, CvSpecialties } from '@/components/cv/cv-sections';
 import { ProfileCompleteness } from '@/components/profile/profile-completeness';
@@ -426,7 +427,8 @@ export default function ProfilePage() {
 
         {/* ─── Columna derecha: secciones del CV (About, Stats, Credenciales, Logros, Barcos) ─── */}
         {!editing && (
-          <div className="mt-6 lg:mt-0">
+          <div className="mt-6 flex flex-col gap-8 lg:mt-0">
+            <NauticalIdentity userId={shown.id} isOwner />
             <CvPanel
               profile={shown}
               isOwner

@@ -9,6 +9,7 @@ import { AppShell } from '@/components/app-shell';
 import { Avatar } from '@/components/avatar';
 import { Card } from '@/components/ui/card';
 import { CvPanel } from '@/components/cv/cv-panel';
+import { NauticalIdentity } from '@/components/community/nautical-identity';
 import { CvActions } from '@/components/cv/cv-actions';
 import {
   CommunityStats,
@@ -132,7 +133,10 @@ export default function PublicProfilePage() {
         {/* ─── Columna derecha: secciones ─── */}
         <div className="mt-6 lg:mt-0">
           {visible ? (
-            <CvPanel profile={profile} isOwner={isOwner} onRefresh={load} />
+            <div className="flex flex-col gap-8">
+              <NauticalIdentity userId={profile.id} isOwner={isOwner} />
+              <CvPanel profile={profile} isOwner={isOwner} onRefresh={load} />
+            </div>
           ) : (
             <Card className="flex items-start gap-3">
               <Lock className="mt-0.5 h-5 w-5 shrink-0 text-navy-400" />

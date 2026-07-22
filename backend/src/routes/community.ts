@@ -350,4 +350,81 @@ router.delete(
   })
 );
 
+// ============================================================
+// EN QUÉ LE GUSTA NAVEGAR
+// ============================================================
+
+const INTEREST_FIELDS = 'id, user_id, sailing_class, role, created_at';
+
+/** GET /api/community/:id/interests — público. */
+router.get(
+  '/:id/interests',
+  asyncHandler(async (req, res) => {
+    const { data, error } = await supabaseAdmin
+      .from('sailing_interests')
+      .select(INTEREST_FIELDS)
+      .eq('user_id', req.params.id)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return res.json({ interests: data ?? [] });
+  })
+);
+
+/** POST /api/community/:id/interests — solo el dueño. */
+router.post(
+  '/:id/interests',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.user!.id !== req.params.id) {
+      return res.status(403).json({ error: 'Solo podés editar tu propio perfil' });
+    }
+
+    const body = req.body ?? {};
+    if (!isNonEmptyString(body.sailing_class)) {
+      return res.status(400).json({ error: 'La clase es obligatoria' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('sailing_interests')
+      .insert({
+        user_id: req.params.id,
+        sailing_class: body.sailing_class.trim().slice(0, 60),
+        role: isNonEmptyString(body.role) ? body.role.trim().slice(0, 50) : null,
+      })
+      .select(INTEREST_FIELDS)
+      .single();
+
+    // Ya la tenía cargada: no es un error que valga la pena mostrar.
+    if (error?.code === '23505') {
+      return res.status(409).json({ error: 'Ya tenés esa combinación' });
+    }
+    if (error) throw error;
+    return res.status(201).json({ interest: data });
+  })
+);
+
+/** DELETE /api/community/:id/interests/:interestId — solo el dueño. */
+router.delete(
+  '/:id/interests/:interestId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (req.user!.id !== req.params.id) {
+      return res.status(403).json({ error: 'Solo podés editar tu propio perfil' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('sailing_interests')
+      .delete()
+      .eq('id', req.params.interestId)
+      .eq('user_id', req.params.id)
+      .select('id')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'No encontrado' });
+    return res.status(204).send();
+  })
+);
+
 export default router;
