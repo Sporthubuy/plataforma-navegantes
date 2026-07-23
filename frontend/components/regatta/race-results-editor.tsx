@@ -376,6 +376,7 @@ export function RaceResultsEditor({
                     key={r.entry_id}
                     type="button"
                     onClick={() => finish(r.entry_id)}
+                    style={{ touchAction: 'manipulation' }}
                     className="focus-ring flex min-h-16 flex-col items-center justify-center rounded-xl border border-navy-200 bg-white px-2 py-3 transition hover:border-water-600 hover:bg-water-50 active:scale-95"
                   >
                     <span className="text-base font-bold text-navy-900">
@@ -460,7 +461,11 @@ export function RaceResultsEditor({
                 }}
                 className={`flex items-center gap-2 rounded-lg border p-2 ${
                   isDup ? 'border-red-300 bg-red-50' : 'border-navy-100 bg-white'
-                } ${mode === 'reorder' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                } ${
+                  mode === 'reorder'
+                    ? 'cursor-grab select-none active:cursor-grabbing'
+                    : ''
+                }`}
               >
                 {mode === 'reorder' && (
                   <>
@@ -502,12 +507,14 @@ export function RaceResultsEditor({
 
                 {mode === 'write' && (
                   <input
-                    type="number"
-                    min={1}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={r.position}
                     disabled={!!r.code}
                     onChange={(e) =>
-                      update(r.entry_id, { position: e.target.value })
+                      update(r.entry_id, {
+                        position: e.target.value.replace(/\D/g, ''),
+                      })
                     }
                     placeholder="Pos"
                     aria-label={`Posición de ${r.name}`}

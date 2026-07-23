@@ -16,3 +16,7 @@ npm-debug.log*
 
 # OS
 .DS_Store
+
+# Skills instaladas con `npx skills` (código de terceros, no del proyecto)
+.agents/
+.claude/skills/

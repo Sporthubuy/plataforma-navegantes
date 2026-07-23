@@ -445,6 +445,7 @@ export default function RegattaDetailPage() {
                     )
                   ) : hasResults ? (
                     <ResultsTable
+                      highlightUserId={user?.id ?? null}
                       races={classResults!.races}
                       standings={classResults!.standings}
                       effectiveDiscards={classResults!.effective_discards}
