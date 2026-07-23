@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { supabaseAdmin } from '../lib/supabase';
 import { config } from '../config';
 import { requireAuth } from '../middleware/auth';
-import { requirePermission } from '../middleware/permissions';
+import { getUserPermissions, requirePermission } from '../middleware/permissions';
 import { sanitizeLocation } from '../lib/location';
 import { asyncHandler } from '../lib/async-handler';
 import { isNonEmptyString } from '../lib/validation';
@@ -130,7 +130,7 @@ async function buildClassStandings(cls: {
       .eq('status', 'confirmed'),
     supabaseAdmin
       .from('races')
-      .select('id, race_number, name, status, sailed_at')
+      .select('id, race_number, name, status, sailed_at, abandoned_reason')
       .eq('regatta_class_id', cls.id)
       .order('race_number', { ascending: true }),
     // Inscritos en la SERIE (incluye retirados): base de la
@@ -881,6 +881,69 @@ router.post(
   })
 );
 
+/**
+ * PUT /api/regattas/races/:raceId — edita la manga.
+ * Permite nombrarla, fecharla y anularla. Anular no borra: la manga
+ * queda visible pero fuera del puntaje (computeStandings solo cuenta
+ * las `completed`).
+ */
+router.put(
+  '/races/:raceId',
+  requireAuth,
+  requirePermission('regattas.manage_results'),
+  asyncHandler(async (req, res) => {
+    const body = req.body ?? {};
+    const updates: Record<string, unknown> = {};
+
+    if (body.name !== undefined) {
+      updates.name = isNonEmptyString(body.name) ? body.name.trim().slice(0, 100) : null;
+    }
+    if (body.sailed_at !== undefined) {
+      updates.sailed_at = body.sailed_at || null;
+    }
+    if (body.status !== undefined) {
+      if (!['scheduled', 'completed', 'abandoned'].includes(body.status)) {
+        return res.status(400).json({ error: 'Estado de manga inválido' });
+      }
+      updates.status = body.status;
+      // El motivo solo tiene sentido en una manga anulada.
+      if (body.status !== 'abandoned') updates.abandoned_reason = null;
+    }
+    if (body.abandoned_reason !== undefined) {
+      updates.abandoned_reason = isNonEmptyString(body.abandoned_reason)
+        ? body.abandoned_reason.trim().slice(0, 300)
+        : null;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No hay campos para actualizar' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('races')
+      .update(updates)
+      .eq('id', req.params.raceId)
+      .select('id, regatta_class_id, race_number, name, status, sailed_at, abandoned_reason')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Manga no encontrada' });
+
+    // Anular o reactivar una manga cambia la posición final: si la clase
+    // ya estaba cerrada, hay que rehacer los logros.
+    const { data: cls } = await supabaseAdmin
+      .from('regatta_classes')
+      .select('status')
+      .eq('id', data.regatta_class_id)
+      .maybeSingle();
+    if (cls?.status === 'finished') {
+      syncClassAchievementsSafely(data.regatta_class_id);
+    }
+
+    return res.json({ race: data });
+  })
+);
+
 /** DELETE /api/regattas/races/:raceId — borra una manga. */
 router.delete(
   '/races/:raceId',
@@ -1060,10 +1123,15 @@ router.post(
     if (!boat) {
       return res.status(404).json({ error: 'Barco no encontrado' });
     }
+    // El comité puede anotar a quien se inscribió en papel; el resto
+    // solo puede inscribir sus propios barcos.
     if (boat.owner_id !== req.user!.id) {
-      return res
-        .status(403)
-        .json({ error: 'Solo el dueño del barco puede inscribirlo' });
+      const permissions = await getUserPermissions(req.user!.id);
+      if (!permissions.includes('regattas.edit')) {
+        return res
+          .status(403)
+          .json({ error: 'Solo el dueño del barco puede inscribirlo' });
+      }
     }
 
     // 4. La clase del barco coincide con la de la flota.

@@ -11,6 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Field, Input, Select } from '@/components/ui/input';
 import { RaceResultsEditor } from '@/components/regatta/race-results-editor';
 import {
+  AddEntryModal,
+  ClassStatusPanel,
+  EditRaceButton,
+  EditRaceModal,
+  ExportResultsButton,
+  raceState,
+} from '@/components/regatta/race-manager';
+import {
   RegattaStatusBadge,
   REGATTA_STATUS,
   allowedRegattaStatuses,
@@ -31,6 +39,7 @@ function RaceRow({
   canManage,
   onSaved,
   onDelete,
+  onEdit,
 }: {
   race: Race;
   entries: RegattaEntry[];
@@ -38,24 +47,29 @@ function RaceRow({
   canManage: boolean;
   onSaved: () => void;
   onDelete: () => void;
+  onEdit: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const state = raceState(race);
+  const StateIcon = state.icon;
 
   return (
     <Card padded={false} className="p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-navy-900">
-            Manga {race.race_number}
+            {race.name || `Manga ${race.race_number}`}
           </span>
-          {race.status === 'completed' && (
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-              Completada
-            </span>
-          )}
+          <span
+            className={`inline-flex items-center gap-1 text-xs font-medium ${state.className}`}
+          >
+            <StateIcon className="h-3.5 w-3.5" />
+            {state.label}
+          </span>
         </div>
         {canManage && (
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
+            <EditRaceButton onClick={onEdit} />
             <button
               onClick={() => setOpen((o) => !o)}
               className="text-sm font-medium text-navy-600 hover:underline"
@@ -71,6 +85,12 @@ function RaceRow({
           </div>
         )}
       </div>
+
+      {race.status === 'abandoned' && race.abandoned_reason && (
+        <p className="mt-2 text-xs text-sand-700">
+          Anulada: {race.abandoned_reason}
+        </p>
+      )}
 
       {open && entries.length === 0 && (
         <p className="mt-3 text-sm text-navy-400">
@@ -100,6 +120,8 @@ export default function ManageClassPage() {
   const [savingConfig, setSavingConfig] = useState(false);
   const [discards, setDiscards] = useState('0');
   const [maxEntries, setMaxEntries] = useState('');
+  const [editingRace, setEditingRace] = useState<Race | null>(null);
+  const [addEntry, setAddEntry] = useState(false);
 
   const canManageResults = hasPermission('regattas.manage_results');
   const canEdit = hasPermission('regattas.edit');
@@ -304,15 +326,25 @@ export default function ManageClassPage() {
         )}
       </Card>
 
+      <ClassStatusPanel data={data} />
+
       {/* Mangas y resultados */}
       <section>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-lg font-bold text-navy-900">Mangas y resultados</h3>
-          {canManageResults && (
-            <Button size="sm" onClick={addRace}>
-              + Agregar manga
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-2">
+            <ExportResultsButton data={data} />
+            {canEdit && (
+              <Button size="sm" variant="secondary" onClick={() => setAddEntry(true)}>
+                + Inscribir barco
+              </Button>
+            )}
+            {canManageResults && (
+              <Button size="sm" onClick={addRace}>
+                + Agregar manga
+              </Button>
+            )}
+          </div>
         </div>
 
         {data.races.length === 0 ? (
@@ -336,12 +368,30 @@ export default function ManageClassPage() {
                   canManage={canManageResults}
                   onSaved={load}
                   onDelete={() => deleteRace(race.id)}
+                  onEdit={() => setEditingRace(race)}
                 />
               );
             })}
           </div>
         )}
       </section>
+
+      {editingRace && (
+        <EditRaceModal
+          race={editingRace}
+          onClose={() => setEditingRace(null)}
+          onSaved={load}
+        />
+      )}
+
+      {addEntry && (
+        <AddEntryModal
+          classId={String(params.classId)}
+          sailingClass={cls.sailing_class}
+          onClose={() => setAddEntry(false)}
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }

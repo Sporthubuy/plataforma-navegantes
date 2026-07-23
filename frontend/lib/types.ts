@@ -612,11 +612,13 @@ export interface Regatta {
 }
 
 export interface Race {
+  /** 'abandoned' = anulada: queda visible pero no puntúa. */
+  abandoned_reason?: string | null;
   id: string;
   regatta_class_id?: string;
   race_number: number;
   name: string | null;
-  status: 'scheduled' | 'completed';
+  status: 'scheduled' | 'completed' | 'abandoned';
   sailed_at: string | null;
 }
 
