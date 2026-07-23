@@ -232,7 +232,10 @@ router.get(
       return res.json({ activities: [], pagination: { limit, offset, total: 0 } });
     }
 
-    const [{ data: profiles }, { data: boats }] = await Promise.all([
+    const activityIds = activities.map((a) => a.id);
+    const me = optionalUserId(req);
+
+    const [{ data: profiles }, { data: boats }, { data: kudos }] = await Promise.all([
       supabaseAdmin
         .from('profiles')
         .select(PUBLIC_PROFILE)
@@ -244,7 +247,18 @@ router.get(
           'id',
           activities.map((a) => a.boat_id).filter((id): id is string => Boolean(id))
         ),
+      supabaseAdmin
+        .from('activity_kudos')
+        .select('activity_id, user_id')
+        .in('activity_id', activityIds),
     ]);
+
+    const kudosCount = new Map<string, number>();
+    const myKudos = new Set<string>();
+    for (const k of kudos ?? []) {
+      kudosCount.set(k.activity_id, (kudosCount.get(k.activity_id) ?? 0) + 1);
+      if (me && k.user_id === me) myKudos.add(k.activity_id);
+    }
 
     const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
     const boatById = new Map((boats ?? []).map((b) => [b.id, b]));
@@ -254,6 +268,8 @@ router.get(
         ...a,
         user: profileById.get(a.user_id) ?? null,
         boat: a.boat_id ? (boatById.get(a.boat_id) ?? null) : null,
+        kudos_count: kudosCount.get(a.id) ?? 0,
+        kudos_by_me: myKudos.has(a.id),
       })),
       pagination: { limit, offset, total: count ?? 0 },
     });
@@ -424,6 +440,56 @@ router.delete(
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'No encontrado' });
     return res.status(204).send();
+  })
+);
+
+/**
+ * POST /api/community/activities/:id/kudos — aplaude o retira el
+ * aplauso. Es un toggle: devuelve el estado resultante para que la UI
+ * no tenga que adivinarlo.
+ */
+router.post(
+  '/activities/:id/kudos',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const me = req.user!.id;
+    const activityId = req.params.id;
+
+    const { data: activity } = await supabaseAdmin
+      .from('sailing_hours')
+      .select('id, user_id')
+      .eq('id', activityId)
+      .maybeSingle();
+
+    if (!activity) return res.status(404).json({ error: 'Salida no encontrada' });
+
+    const { data: existing } = await supabaseAdmin
+      .from('activity_kudos')
+      .select('user_id')
+      .eq('activity_id', activityId)
+      .eq('user_id', me)
+      .maybeSingle();
+
+    if (existing) {
+      await supabaseAdmin
+        .from('activity_kudos')
+        .delete()
+        .eq('activity_id', activityId)
+        .eq('user_id', me);
+    } else {
+      const { error } = await supabaseAdmin
+        .from('activity_kudos')
+        .insert({ activity_id: activityId, user_id: me });
+      // Doble toque simultáneo: el resultado buscado igual se cumple.
+      if (error && error.code !== '23505') throw error;
+    }
+
+    const { count } = await supabaseAdmin
+      .from('activity_kudos')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('activity_id', activityId);
+
+    return res.json({ kudos_by_me: !existing, kudos_count: count ?? 0 });
   })
 );
 

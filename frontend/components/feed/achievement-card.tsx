@@ -46,7 +46,7 @@ export function AchievementCard({ item }: { item: RegattaHistoryItem }) {
 
       <Link
         href={`/regattas/${item.regatta_id}`}
-        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-water-600 transition-all hover:gap-1.5 hover:underline"
+        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-water-600 transition-colors duration-150 hover:underline"
       >
         Ver resultados
         <ArrowRight className="h-3 w-3" />

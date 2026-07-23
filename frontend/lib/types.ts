@@ -75,6 +75,9 @@ export interface CommunityActivity {
     verified_badge: boolean;
   } | null;
   boat: { id: string; name: string; category: string } | null;
+  /** Aplausos: la única reacción de una salida. */
+  kudos_count?: number;
+  kudos_by_me?: boolean;
 }
 
 // ── Mensajería ──────────────────────────────────────────────

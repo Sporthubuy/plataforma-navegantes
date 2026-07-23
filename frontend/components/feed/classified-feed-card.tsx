@@ -84,7 +84,7 @@ export function FeedClassifiedCard({ classified }: { classified: Classified }) {
 
       <Link
         href={`/classifieds/${classified.id}`}
-        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-water-600 transition-all hover:gap-1.5 hover:underline"
+        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-water-600 transition-colors duration-150 hover:underline"
       >
         Ver clasificado
         <ArrowRight className="h-3 w-3" />

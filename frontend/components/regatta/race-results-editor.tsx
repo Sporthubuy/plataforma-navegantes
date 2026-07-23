@@ -518,7 +518,7 @@ export function RaceResultsEditor({
                     }
                     placeholder="Pos"
                     aria-label={`Posición de ${r.name}`}
-                    className={`w-16 rounded-lg border px-2 py-2 text-center text-sm outline-none disabled:bg-navy-50 disabled:opacity-50 ${
+                    className={`focus-ring w-16 rounded-lg border px-2 py-2 text-center text-sm outline-none disabled:bg-navy-50 disabled:opacity-50 ${
                       isDup
                         ? 'border-red-400 text-red-700'
                         : 'border-navy-200 focus:border-navy-500'
