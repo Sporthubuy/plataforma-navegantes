@@ -17,6 +17,7 @@ import gamificationRouter from './routes/gamification';
 import searchRouter from './routes/search';
 import messagesRouter from './routes/messages';
 import communityRouter from './routes/community';
+import adminContentRouter from './routes/admin-content';
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/posts', postsRouter);
 app.use('/api/boats', boatsRouter);
 app.use('/api/crew', crewRouter);
+app.use('/api/admin/content', adminContentRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/regattas', regattasRouter);
 app.use('/api/classifieds', classifiedsRouter);

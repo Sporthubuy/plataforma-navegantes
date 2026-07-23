@@ -12,6 +12,7 @@ const TABS = [
   { href: '/admin/boats', label: 'Barcos', exact: false },
   { href: '/admin/regattas', label: 'Regatas', exact: false },
   { href: '/admin/clubs', label: 'Clubes', exact: false },
+  { href: '/admin/content', label: 'Moderación', exact: false },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

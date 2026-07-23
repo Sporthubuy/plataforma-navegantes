@@ -11,6 +11,7 @@ import { Username } from '@/components/username';
 import { StatusBadge, AccountTypeBadge } from '@/components/admin/badges';
 import { formatDate, formatDateTime, timeAgo } from '@/lib/format';
 import type { AdminUserDetail, PermissionCatalogItem } from '@/lib/types';
+import { EditUserModal } from '@/components/admin/edit-user-modal';
 
 const GRANT_PERMISSION = 'users.grant_permissions';
 
@@ -43,6 +44,26 @@ export default function AdminUserDetailPage() {
       .then((res) => setCatalog(res.data.catalog))
       .catch(() => setCatalog([]));
   }, [canManagePermissions]);
+
+  const [editOpen, setEditOpen] = useState(false);
+
+  async function toggleVerified() {
+    if (!detail) return;
+    setBusy(true);
+    try {
+      await api.put(`/api/admin/users/${params.id}/verified`, {
+        verified: !detail.verified_badge,
+      });
+      toast.success(
+        detail.verified_badge ? 'Sello retirado' : 'Perfil verificado'
+      );
+      load();
+    } catch (err) {
+      toast.error(getApiError(err, 'No se pudo actualizar'));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function suspend() {
     const reason = window.prompt('Motivo de la suspensión (opcional):') ?? '';
@@ -194,6 +215,43 @@ export default function AdminUserDetailPage() {
         )}
       </div>
 
+      {/* Verificación y edición de perfil */}
+      {(hasPermission('users.verify') || hasPermission('users.edit_all')) && (
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <h3 className="mb-3 font-bold text-navy-900">Perfil</h3>
+          <div className="flex flex-wrap gap-3">
+            {hasPermission('users.verify') && (
+              <button
+                onClick={toggleVerified}
+                disabled={busy}
+                className={`rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-50 ${
+                  detail.verified_badge
+                    ? 'border-navy-200 bg-white text-navy-600 hover:bg-navy-50'
+                    : 'border-water-600/30 bg-water-50 text-water-600 hover:bg-water-100'
+                }`}
+              >
+                {detail.verified_badge
+                  ? 'Quitar verificación'
+                  : 'Verificar perfil'}
+              </button>
+            )}
+            {hasPermission('users.edit_all') && (
+              <button
+                onClick={() => setEditOpen(true)}
+                className="rounded-lg border border-navy-200 bg-white px-4 py-2 text-sm font-semibold text-navy-700 hover:bg-navy-50"
+              >
+                Editar perfil
+              </button>
+            )}
+          </div>
+          {detail.verified_badge && (
+            <p className="mt-2 text-xs text-water-600">
+              Este perfil tiene el sello de verificado.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Acciones de cuenta */}
       {(hasPermission('users.suspend') || hasPermission('users.delete')) && (
         <div className="rounded-2xl bg-white p-4 shadow-sm">
@@ -327,6 +385,14 @@ export default function AdminUserDetailPage() {
         )}
       </div>
       </div>
+
+      {editOpen && detail && (
+        <EditUserModal
+          user={detail}
+          onClose={() => setEditOpen(false)}
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }

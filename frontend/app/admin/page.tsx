@@ -3,7 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import {
+  Anchor,
+  Building2,
+  Flag,
+  Megaphone,
+  Users,
+  Waves,
+} from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import { ACCOUNT_TYPE_LABEL } from '@/lib/format';
 import type { AdminStats } from '@/lib/types';
 
@@ -25,6 +34,33 @@ function StatCard({
   );
 }
 
+/** Atajo a una sección del panel. `permission` lo oculta si no lo tenés. */
+function SectionLink({
+  href,
+  label,
+  icon: Icon,
+  permission,
+}: {
+  href: string;
+  label: string;
+  icon: typeof Users;
+  permission?: string;
+}) {
+  const { hasPermission } = useAuth();
+  if (permission && !hasPermission(permission)) return null;
+  return (
+    <Link
+      href={href}
+      className="focus-ring flex items-center gap-3 rounded-xl border border-navy-100 bg-white p-4 font-semibold text-navy-800 transition hover:border-water-600/30 hover:bg-water-50"
+    >
+      <Icon className="h-5 w-5 text-water-600" />
+      {label}
+    </Link>
+  );
+}
+
+const nf = new Intl.NumberFormat('es-UY', { maximumFractionDigits: 1 });
+
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
 
@@ -42,19 +78,36 @@ export default function AdminDashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Usuarios totales" value={stats.total_users} />
+        <StatCard
+          label="Usuarios"
+          value={stats.total_users}
+          hint={`${stats.new_this_week} nuevos esta semana`}
+        />
         <StatCard label="Activos hoy" value={stats.active_today} />
-        <StatCard label="Nuevos hoy" value={stats.new_today} />
         <StatCard label="Barcos" value={stats.total_boats} />
+        <StatCard label="Clubes" value={stats.total_clubs} />
+        <StatCard label="Publicaciones" value={stats.total_posts} />
+        <StatCard
+          label="Clasificados activos"
+          value={stats.active_classifieds}
+        />
+        <StatCard label="Regatas en curso" value={stats.live_regattas} />
+        <StatCard
+          label="Salidas"
+          value={stats.total_outings}
+          hint={`${nf.format(stats.total_miles)} millas en total`}
+        />
       </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="mb-3 font-bold text-navy-900">Por tipo de cuenta</h2>
           <div className="flex flex-col gap-2">
-            {(Object.keys(stats.by_account_type) as Array<
-              keyof typeof stats.by_account_type
-            >).map((type) => (
+            {(
+              Object.keys(stats.by_account_type) as Array<
+                keyof typeof stats.by_account_type
+              >
+            ).map((type) => (
               <div
                 key={type}
                 className="flex items-center justify-between text-sm"
@@ -89,20 +142,41 @@ export default function AdminDashboardPage() {
         </div>
       </section>
 
-      <div className="flex gap-3">
-        <Link
-          href="/admin/users"
-          className="flex-1 rounded-xl bg-navy-800 px-4 py-3 text-center font-semibold text-white hover:bg-navy-700"
-        >
-          Gestionar usuarios
-        </Link>
-        <Link
-          href="/admin/boats"
-          className="flex-1 rounded-xl border border-navy-200 bg-white px-4 py-3 text-center font-semibold text-navy-700 hover:bg-navy-50"
-        >
-          Gestionar barcos
-        </Link>
-      </div>
+      <section>
+        <h2 className="mb-3 font-bold text-navy-900">Gestión</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <SectionLink
+            href="/admin/users"
+            label="Usuarios"
+            icon={Users}
+            permission="users.view"
+          />
+          <SectionLink
+            href="/admin/boats"
+            label="Barcos"
+            icon={Anchor}
+            permission="boats.view_all"
+          />
+          <SectionLink href="/admin/regattas" label="Regatas" icon={Flag} />
+          <SectionLink
+            href="/admin/clubs"
+            label="Clubes"
+            icon={Building2}
+          />
+          <SectionLink
+            href="/admin/content"
+            label="Moderación"
+            icon={Megaphone}
+            permission="content.moderate"
+          />
+          <SectionLink
+            href="/admin/content?tab=activities"
+            label="Salidas"
+            icon={Waves}
+            permission="content.moderate"
+          />
+        </div>
+      </section>
     </div>
   );
 }

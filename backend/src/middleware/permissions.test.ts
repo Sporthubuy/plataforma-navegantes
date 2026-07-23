@@ -215,7 +215,7 @@ describe('catálogo de permisos', () => {
     vi.resetModules();
     const { ALL_PERMISSIONS, PERMISSION_CATALOG } = await import('./permissions');
 
-    // Los 13 permisos vigentes (usuarios, barcos, regatas y clubes).
+    // Los 15 permisos vigentes (usuarios, barcos, regatas y clubes).
     expect(ALL_PERMISSIONS).toEqual(
       expect.arrayContaining([
         'users.view',
@@ -223,6 +223,7 @@ describe('catálogo de permisos', () => {
         'users.delete',
         'users.grant_permissions',
         'users.verify',
+        'users.edit_all',
         'boats.view_all',
         'boats.edit_all',
         'boats.create_all',
@@ -231,6 +232,7 @@ describe('catálogo de permisos', () => {
         'regattas.delete',
         'regattas.manage_results',
         'clubs.manage',
+        'content.moderate',
       ])
     );
     // Todos tienen descripción legible.

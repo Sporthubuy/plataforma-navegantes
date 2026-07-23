@@ -2,7 +2,10 @@ import { Router } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
 import { requireAuth } from '../middleware/auth';
 import { asyncHandler } from '../lib/async-handler';
-import { isNonEmptyString } from '../lib/validation';
+import { isNonEmptyString, isValidUsername } from '../lib/validation';
+import { normalizeUsername } from './users';
+import { sanitizeProfileExtras } from '../lib/profile-fields';
+import { sanitizeLocation } from '../lib/location';
 import {
   ALL_PERMISSIONS,
   PERMISSION_CATALOG,
@@ -135,7 +138,7 @@ router.get(
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
       .select(
-        'id, username, name, bio, avatar_url, account_type, status, suspended_at, suspended_reason, created_at, last_active_at'
+        'id, username, name, bio, avatar_url, account_type, status, suspended_at, suspended_reason, created_at, last_active_at, verified_badge, public_profile, sailing_class, usual_role, country, city, club_id'
       )
       .eq('id', req.params.id)
       .maybeSingle();
@@ -424,16 +427,29 @@ router.get(
     startOfDay.setHours(0, 0, 0, 0);
     const startIso = startOfDay.toISOString();
 
+    // Altas de la última semana, para el pulso de crecimiento.
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const weekIso = weekAgo.toISOString();
+
+    const headCount = (table: string) =>
+      supabaseAdmin.from(table).select('id', { count: 'exact', head: true });
+
     const [
       totalUsers,
       activeToday,
       newToday,
+      newThisWeek,
       totalBoats,
+      totalPosts,
+      totalClubs,
+      totalOutings,
       allProfiles,
+      activeClassifieds,
+      liveRegattas,
+      milesRows,
     ] = await Promise.all([
-      supabaseAdmin
-        .from('profiles')
-        .select('id', { count: 'exact', head: true }),
+      headCount('profiles'),
       supabaseAdmin
         .from('profiles')
         .select('id', { count: 'exact', head: true })
@@ -442,8 +458,26 @@ router.get(
         .from('profiles')
         .select('id', { count: 'exact', head: true })
         .gte('created_at', startIso),
-      supabaseAdmin.from('boats').select('id', { count: 'exact', head: true }),
+      supabaseAdmin
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', weekIso),
+      headCount('boats'),
+      headCount('posts'),
+      headCount('clubs'),
+      headCount('sailing_hours'),
       supabaseAdmin.from('profiles').select('account_type, status'),
+      supabaseAdmin
+        .from('classifieds')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'active'),
+      supabaseAdmin
+        .from('regattas')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['open', 'in_progress']),
+      // Millas totales: se suman en memoria (no hay agregado barato en
+      // el cliente de Supabase), pero son pocas filas.
+      supabaseAdmin.from('sailing_hours').select('distance_nm'),
     ]);
 
     const byAccountType: Record<string, number> = {
@@ -457,11 +491,23 @@ router.get(
       byStatus[p.status] = (byStatus[p.status] ?? 0) + 1;
     }
 
+    const totalMiles = (milesRows.data ?? []).reduce(
+      (sum, r) => sum + (Number(r.distance_nm) || 0),
+      0
+    );
+
     return res.json({
       total_users: totalUsers.count ?? 0,
       active_today: activeToday.count ?? 0,
       new_today: newToday.count ?? 0,
+      new_this_week: newThisWeek.count ?? 0,
       total_boats: totalBoats.count ?? 0,
+      total_posts: totalPosts.count ?? 0,
+      total_clubs: totalClubs.count ?? 0,
+      total_outings: totalOutings.count ?? 0,
+      total_miles: Math.round(totalMiles * 10) / 10,
+      active_classifieds: activeClassifieds.count ?? 0,
+      live_regattas: liveRegattas.count ?? 0,
       by_account_type: byAccountType,
       by_status: byStatus,
     });
@@ -645,6 +691,148 @@ router.post(
     const { data, error } = await supabaseAdmin.rpc('expire_classifieds');
     if (error) throw error;
     return res.json({ expired_count: data ?? 0 });
+  })
+);
+
+// ============================================================
+// VERIFICACIÓN DE PERFILES
+// ============================================================
+
+/**
+ * PUT /api/admin/users/:id/verified — da o quita el sello de verificado.
+ * Requiere 'users.verify', el mismo permiso que verifica credenciales.
+ */
+router.put(
+  '/users/:id/verified',
+  requireAuth,
+  requirePermission('users.verify'),
+  asyncHandler(async (req, res) => {
+    const { verified } = req.body ?? {};
+    if (typeof verified !== 'boolean') {
+      return res.status(400).json({ error: 'verified debe ser booleano' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .update({ verified_badge: verified })
+      .eq('id', req.params.id)
+      .select('id, verified_badge')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Usuario no encontrado' });
+    return res.json({ profile: data });
+  })
+);
+
+/**
+ * GET /api/admin/credentials/pending — credenciales sin verificar,
+ * para tener una cola de revisión en un solo lugar.
+ */
+router.get(
+  '/credentials/pending',
+  requireAuth,
+  requirePermission('users.verify'),
+  asyncHandler(async (req, res) => {
+    const { limit, offset } = parsePagination(req.query);
+    const { data, error, count } = await supabaseAdmin
+      .from('credentials')
+      .select(
+        'id, user_id, credential_type, title, issuer, issue_date, credential_url, created_at, user:profiles(id, username, name, avatar_url)',
+        { count: 'exact' }
+      )
+      .eq('is_verified', false)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+    return res.json({
+      credentials: data ?? [],
+      pagination: { limit, offset, total: count ?? 0 },
+    });
+  })
+);
+
+// ============================================================
+// EDICIÓN DE PERFIL (admin) — cualquier usuario
+// ============================================================
+
+/**
+ * PUT /api/admin/users/:id/profile — edita el perfil de cualquiera.
+ * Requiere 'users.edit_all'. Reutiliza los mismos sanitizadores que el
+ * PUT del dueño, así la validación es idéntica desde los dos lados.
+ */
+router.put(
+  '/users/:id/profile',
+  requireAuth,
+  requirePermission('users.edit_all'),
+  asyncHandler(async (req, res) => {
+    const targetId = req.params.id;
+    const body = req.body ?? {};
+    const updates: Record<string, unknown> = {};
+
+    if (body.username !== undefined) {
+      const normalized = normalizeUsername(String(body.username));
+      if (!isValidUsername(normalized)) {
+        return res.status(422).json({
+          error:
+            'Username inválido: 3-20 caracteres, minúsculas, números y guion bajo',
+        });
+      }
+      const { data: taken } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('username', normalized)
+        .neq('id', targetId)
+        .maybeSingle();
+      if (taken) {
+        return res.status(409).json({ error: 'El username ya está en uso' });
+      }
+      updates.username = normalized;
+    }
+
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.bio !== undefined) updates.bio = body.bio;
+    if (body.verified_badge !== undefined) {
+      updates.verified_badge = body.verified_badge === true;
+    }
+    if (body.public_profile !== undefined) {
+      updates.public_profile = body.public_profile === true;
+    }
+
+    const extras = sanitizeProfileExtras(body);
+    if ('error' in extras) {
+      return res.status(extras.error.status).json({ error: extras.error.message });
+    }
+    Object.assign(updates, extras.updates);
+
+    const location = await sanitizeLocation(body, { withClub: true });
+    if ('error' in location) {
+      return res
+        .status(location.error.status)
+        .json({ error: location.error.message });
+    }
+    Object.assign(updates, location.updates);
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No hay campos para actualizar' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .update(updates)
+      .eq('id', targetId)
+      .select('id, username, name, bio, verified_badge, public_profile')
+      .maybeSingle();
+
+    if (error) {
+      if (error.code === '23505') {
+        return res.status(409).json({ error: 'El username ya está en uso' });
+      }
+      throw error;
+    }
+    if (!data) return res.status(404).json({ error: 'Usuario no encontrado' });
+    return res.json({ profile: data });
   })
 );
 

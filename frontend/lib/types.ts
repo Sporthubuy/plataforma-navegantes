@@ -492,6 +492,13 @@ export interface AdminUser {
 }
 
 export interface AdminUserDetail {
+  verified_badge?: boolean;
+  public_profile?: boolean;
+  sailing_class?: string | null;
+  usual_role?: string | null;
+  country?: string | null;
+  city?: string | null;
+  club_id?: string | null;
   id: string;
   username: string;
   name: string | null;
@@ -524,9 +531,39 @@ export interface AdminStats {
   total_users: number;
   active_today: number;
   new_today: number;
+  new_this_week: number;
   total_boats: number;
+  total_posts: number;
+  total_clubs: number;
+  total_outings: number;
+  total_miles: number;
+  active_classifieds: number;
+  live_regattas: number;
   by_account_type: Record<AccountType, number>;
   by_status: Record<AccountStatus, number>;
+}
+
+/** Una pieza de contenido en el panel de moderación. */
+export interface ModeratedItem {
+  id: string;
+  title?: string;
+  content?: string;
+  description?: string;
+  category?: string;
+  status?: string;
+  image_url?: string | null;
+  post_id?: string;
+  sailed_date?: string;
+  hours?: number;
+  distance_nm?: number | null;
+  sailing_class?: string | null;
+  notes?: string | null;
+  is_public?: boolean;
+  country?: string | null;
+  city?: string | null;
+  created_at: string;
+  author?: { id: string; username: string; name: string | null; avatar_url: string | null } | null;
+  user?: { id: string; username: string; name: string | null; avatar_url: string | null } | null;
 }
 
 export interface AdminBoat {

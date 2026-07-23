@@ -8,6 +8,7 @@ export const PERMISSION_CATALOG: Record<string, string> = {
   'users.delete': 'Eliminar cuentas de usuario',
   'users.grant_permissions': 'Otorgar y revocar permisos de administración',
   'users.verify': 'Verificar credenciales y perfiles de navegantes',
+  'users.edit_all': 'Editar el perfil de cualquier usuario',
   'boats.view_all': 'Ver todos los barcos de la plataforma',
   'boats.edit_all': 'Editar y eliminar cualquier barco',
   'boats.create_all': 'Crear barcos a nombre de cualquier usuario',
@@ -16,6 +17,7 @@ export const PERMISSION_CATALOG: Record<string, string> = {
   'regattas.delete': 'Eliminar regatas',
   'regattas.manage_results': 'Gestionar mangas y cargar resultados',
   'clubs.manage': 'Crear, editar y eliminar clubes del catálogo',
+  'content.moderate': 'Moderar contenido: borrar posts, comentarios, clasificados y salidas',
 };
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSION_CATALOG);

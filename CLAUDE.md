@@ -123,6 +123,16 @@ Cierra el circuito del buscador: sin esto encontrás a alguien y no tenés cómo
 - Abrir un hilo (`GET /api/messages/:id`) lo marca leído. Como eso pasa en el backend, el frontend dispara el evento `navegantes:badges` para que el contador no quede colgado hasta la próxima navegación.
 - RLS: solo los dos participantes leen la conversación y sus mensajes. Las escrituras van por el backend con service role, que valida destinatario existente y activo.
 
+## Panel de administración completo (alcance actual)
+
+El panel (`/admin`) administra toda la plataforma, con permisos granulares enforced en el backend:
+
+- **Dashboard**: usuarios (+ altas de la semana), activos hoy, barcos, clubes, publicaciones, clasificados activos, regatas en curso y salidas (con millas totales), más los cortes por tipo de cuenta y estado.
+- **Moderación** (`content.moderate`): ver y **borrar** posts, comentarios, clasificados y salidas de cualquier usuario. El admin no edita contenido ajeno —moderar es sacar, no reescribir—. Router propio en `admin-content.ts`, todo bajo un mismo `SOURCES` para no repetir el CRUD por tipo.
+- **Verificación** (`users.verify`): dar/quitar el sello `verified_badge` y verificar credenciales; hay una cola en `GET /admin/credentials/pending`.
+- **Editar cualquier perfil** (`users.edit_all`): identidad, datos náuticos y ubicación desde el panel. Reutiliza los mismos sanitizadores que el PUT del dueño (`sanitizeProfileExtras`, `sanitizeLocation`), así la validación es idéntica desde los dos lados. No toca el CV profesional ni el legajo.
+- Usuarios, barcos, regatas y clubes siguen como estaban.
+
 ## Convenciones
 
 - **Puertos:** backend en `3001`, frontend en `3000`.
