@@ -409,13 +409,14 @@ export function RaceResultsEditor({
                       <span className="min-w-0 flex-1 truncate text-sm text-navy-700">
                         {r.name}
                       </span>
+                      <div className="w-24 shrink-0">
                       <Select
                         value={r.code}
                         onChange={(e) =>
                           update(r.entry_id, { code: e.target.value })
                         }
                         aria-label={`Código de ${r.name}`}
-                        className="w-24 py-1.5 text-sm"
+                        className="py-1.5 text-sm"
                       >
                         <option value="">—</option>
                         {RESULT_CODES.map((c) => (
@@ -424,6 +425,7 @@ export function RaceResultsEditor({
                           </option>
                         ))}
                       </Select>
+                      </div>
                     </li>
                   ))}
               </ul>
@@ -517,19 +519,23 @@ export function RaceResultsEditor({
                   />
                 )}
 
-                <Select
-                  value={r.code}
-                  onChange={(e) => update(r.entry_id, { code: e.target.value })}
-                  aria-label={`Código de ${r.name}`}
-                  className="w-24 py-2 text-sm"
-                >
-                  <option value="">—</option>
-                  {RESULT_CODES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </Select>
+                {/* El Select trae `w-full`: sin este contenedor de ancho
+                    fijo aplasta al nombre del barco. */}
+                <div className="w-24 shrink-0">
+                  <Select
+                    value={r.code}
+                    onChange={(e) => update(r.entry_id, { code: e.target.value })}
+                    aria-label={`Código de ${r.name}`}
+                    className="py-2 text-sm"
+                  >
+                    <option value="">—</option>
+                    {RESULT_CODES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
               </div>
             );
           })}
